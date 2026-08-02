@@ -1,0 +1,286 @@
+const fs = require('fs');
+const path = require('path');
+
+const jsPath = path.join(__dirname, '..', 'dist', 'wm8741-ble.umd.js');
+const outPath = path.join(__dirname, '..', 'standalone.html');
+
+if (!fs.existsSync(jsPath)) {
+  console.error('Build output not found. Please run "npm run build" first.');
+  process.exit(1);
+}
+
+const js = fs.readFileSync(jsPath, 'utf8');
+
+const html = `<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WM8741 BLE 控制</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 500px; margin: 20px auto; padding: 10px; background: #f0f0f0; }
+        .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .row { display: flex; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+        .label { width: 100px; font-weight: bold; }
+        .slider { flex: 1; min-width: 150px; }
+        .value { width: 40px; text-align: center; }
+        .radio-group { display: flex; gap: 8px; flex-wrap: wrap; }
+        button { background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+        button:disabled { background: #ccc; }
+        .checkbox-group label { display: flex; align-items: center; gap: 4px; margin-right: 12px; }
+        .log { background: #e9ecef; padding: 8px; border-radius: 4px; font-size: 12px; max-height: 120px; overflow-y: auto; white-space: pre-wrap; }
+        .connect-btn { background: #28a745; }
+        .connect-btn:disabled { background: #ccc; }
+        .status { margin-left: 10px; font-weight: bold; }
+        .status.idle { color: #666; }
+        .status.connected { color: green; }
+        .status.reconnecting { color: orange; }
+        .status.disconnected, .status.error { color: red; }
+        .banner { background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 12px; margin-bottom: 20px; font-size: 14px; }
+        .banner.error { background: #f8d7da; border-color: #f5c6cb; }
+        .banner.hidden { display: none; }
+    </style>
+</head>
+<body>
+    <h1>🎛️ WM8741 BLE 控制</h1>
+
+    <div id="contextBanner" class="banner hidden"></div>
+
+    <div class="card">
+        <button id="connectBtn" class="connect-btn">连接设备</button>
+        <span id="status" class="status idle">未连接</span>
+    </div>
+
+    <div class="card">
+        <h2>音量</h2>
+        <div class="row">
+            <span class="label">衰减 (0~127)</span>
+            <input type="range" class="slider" id="volSlider" min="0" max="127" value="0" disabled>
+            <span class="value" id="volDisplay">0</span>
+            <button id="applyVol" disabled>应用</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>滤波器响应</h2>
+        <div class="row">
+            <span class="label">选择</span>
+            <div class="radio-group" id="filterGroup">
+                <label><input type="radio" name="filter" value="1" checked disabled> 1</label>
+                <label><input type="radio" name="filter" value="2" disabled> 2</label>
+                <label><input type="radio" name="filter" value="3" disabled> 3</label>
+                <label><input type="radio" name="filter" value="4" disabled> 4</label>
+                <label><input type="radio" name="filter" value="5" disabled> 5</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>开关选项</h2>
+        <div class="checkbox-group">
+            <label><input type="checkbox" id="muteChk" disabled> 静音</label>
+            <label><input type="checkbox" id="rampChk" disabled> 音量渐变</label>
+            <label><input type="checkbox" id="anticlipChk" disabled> 防削波 (2dB)</label>
+        </div>
+        <button id="applyOpts" disabled>应用选项</button>
+        <button id="resetBtn" style="background:#dc3545;" disabled>复位</button>
+    </div>
+
+    <div class="card">
+        <h2>寄存器直接写入</h2>
+        <div class="row">
+            <span class="label">Reg (hex):</span>
+            <input type="text" id="regAddr" placeholder="04" style="width:60px;" disabled>
+            <span class="label">Val (hex):</span>
+            <input type="text" id="regVal" placeholder="01" style="width:60px;" disabled>
+            <button id="writeReg" disabled>写入</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>日志</h2>
+        <div class="log" id="logArea">等待连接...</div>
+    </div>
+
+    <script>
+${js}
+    </script>
+    <script>
+        const client = new WM8741BLE.WM8741BLEClient();
+
+        const connectBtn = document.getElementById('connectBtn');
+        const statusEl = document.getElementById('status');
+        const logArea = document.getElementById('logArea');
+        const volSlider = document.getElementById('volSlider');
+        const volDisplay = document.getElementById('volDisplay');
+        const applyVol = document.getElementById('applyVol');
+        const filterRadios = document.querySelectorAll('input[name="filter"]');
+        const muteChk = document.getElementById('muteChk');
+        const rampChk = document.getElementById('rampChk');
+        const anticlipChk = document.getElementById('anticlipChk');
+        const applyOpts = document.getElementById('applyOpts');
+        const resetBtn = document.getElementById('resetBtn');
+        const regAddr = document.getElementById('regAddr');
+        const regVal = document.getElementById('regVal');
+        const writeReg = document.getElementById('writeReg');
+        const contextBanner = document.getElementById('contextBanner');
+
+        const controls = [volSlider, applyVol, ...filterRadios, muteChk, rampChk, anticlipChk, applyOpts, resetBtn, regAddr, regVal, writeReg];
+
+        function setControlsEnabled(enabled) {
+            controls.forEach(el => el.disabled = !enabled);
+        }
+
+        function log(msg) {
+            logArea.textContent = msg + '\n' + logArea.textContent;
+            if (logArea.textContent.length > 2000) logArea.textContent = logArea.textContent.substring(0, 2000);
+        }
+
+        function updateStatus(state) {
+            statusEl.className = 'status ' + state;
+            switch (state) {
+                case 'idle': statusEl.textContent = '未连接'; break;
+                case 'scanning': statusEl.textContent = '扫描中...'; break;
+                case 'connecting': statusEl.textContent = '连接中...'; break;
+                case 'discovering-services': statusEl.textContent = '发现服务...'; break;
+                case 'connected': statusEl.textContent = '已连接'; break;
+                case 'reconnecting': statusEl.textContent = '重连中...'; break;
+                case 'disconnected': statusEl.textContent = '已断开'; break;
+                default: statusEl.textContent = state;
+            }
+        }
+
+        function showBanner(message, isError) {
+            contextBanner.textContent = message;
+            contextBanner.classList.remove('hidden', 'error');
+            if (isError) {
+                contextBanner.classList.add('error');
+            }
+        }
+
+        function checkBrowsingContext() {
+            const isSecure = window.isSecureContext;
+            const hasBluetooth = 'bluetooth' in navigator;
+
+            if (!isSecure) {
+                showBanner(
+                    '当前页面未通过 HTTPS 或 localhost 访问，Web Bluetooth 可能已被浏览器禁用。' +
+                    '如果连接失败，请通过本地 HTTP 服务器（如 npx serve）或 HTTPS 方式访问本页面。',
+                    true
+                );
+                return false;
+            }
+
+            if (!hasBluetooth) {
+                showBanner(
+                    '当前浏览器不支持 Web Bluetooth。请使用 Chrome、Edge 或其他基于 Chromium 的浏览器，并确保蓝牙已开启。',
+                    true
+                );
+                connectBtn.disabled = true;
+                return false;
+            }
+
+            return true;
+        }
+
+        client.addEventListener('statechange', (event) => {
+            updateStatus(event.state);
+            setControlsEnabled(event.state === 'connected');
+        });
+
+        client.addEventListener('response', (event) => {
+            log('< ' + event.response);
+        });
+
+        client.addEventListener('disconnect', (event) => {
+            if (event.unexpected) {
+                log('连接意外断开，正在尝试自动重连...');
+            }
+        });
+
+        async function toggleConnection() {
+            try {
+                if (client.isConnected) {
+                    await client.disconnect();
+                    connectBtn.textContent = '连接设备';
+                } else {
+                    await client.connect();
+                    connectBtn.textContent = '断开连接';
+                }
+            } catch (err) {
+                log('错误: ' + err.message);
+            }
+        }
+
+        connectBtn.addEventListener('click', toggleConnection);
+
+        volSlider.addEventListener('input', () => {
+            volDisplay.textContent = volSlider.value;
+        });
+
+        applyVol.addEventListener('click', async () => {
+            try {
+                const response = await client.setVolume(Number(volSlider.value));
+                log('> VOLUME ' + volSlider.value + ' => ' + response);
+            } catch (err) {
+                log('错误: ' + err.message);
+            }
+        });
+
+        filterRadios.forEach(radio => {
+            radio.addEventListener('change', async () => {
+                if (!radio.checked) return;
+                try {
+                    const response = await client.setFilter(Number(radio.value));
+                    log('> FILTER ' + radio.value + ' => ' + response);
+                } catch (err) {
+                    log('错误: ' + err.message);
+                }
+            });
+        });
+
+        applyOpts.addEventListener('click', async () => {
+            try {
+                await client.setMute(muteChk.checked);
+                await client.setVolumeRamp(rampChk.checked);
+                await client.setAntiClip(anticlipChk.checked);
+                log('选项已应用');
+            } catch (err) {
+                log('错误: ' + err.message);
+            }
+        });
+
+        resetBtn.addEventListener('click', async () => {
+            try {
+                const response = await client.reset();
+                log('> RESET => ' + response);
+            } catch (err) {
+                log('错误: ' + err.message);
+            }
+        });
+
+        writeReg.addEventListener('click', async () => {
+            const reg = parseInt(regAddr.value.trim(), 16);
+            const val = parseInt(regVal.value.trim(), 16);
+            if (Number.isNaN(reg) || Number.isNaN(val)) {
+                log('请输入有效的十六进制寄存器地址和值');
+                return;
+            }
+            try {
+                const response = await client.writeRegister(reg, val);
+                log('> SET_REG => ' + response);
+            } catch (err) {
+                log('错误: ' + err.message);
+            }
+        });
+
+        updateStatus('idle');
+        if (checkBrowsingContext()) {
+            log('页面加载完毕，请点击“连接设备”');
+        }
+    </script>
+</body>
+</html>`;
+
+fs.writeFileSync(outPath, html);
+console.log(`Generated ${outPath}`);

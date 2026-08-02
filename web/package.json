@@ -1,0 +1,40 @@
+{
+  "name": "wm8741-ble-web",
+  "version": "1.0.0",
+  "description": "Web Bluetooth control library for WM8741 DAC on ESP32",
+  "type": "module",
+  "main": "dist/wm8741-ble.umd.js",
+  "module": "dist/wm8741-ble.esm.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --noEmit && vite build",
+    "build:types": "tsc --emitDeclarationOnly",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:watch": "vitest",
+    "embed": "node scripts/embed-to-c.js",
+    "lint": "tsc --noEmit",
+    "docs": "typedoc src/index.ts"
+  },
+  "keywords": [
+    "web-bluetooth",
+    "ble",
+    "gatt",
+    "wm8741",
+    "esp32"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/web-bluetooth": "^0.0.20",
+    "jsdom": "^24.1.3",
+    "typedoc": "^0.26.11",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.5"
+  }
+}
