@@ -3,9 +3,11 @@
  *
  * These must match the values exposed by the ESP32 GATT server.
  */
-export const DEFAULT_SERVICE_UUID = '12345678-1234-5678-1234-56789abcdef0';
-export const DEFAULT_CMD_CHARACTERISTIC_UUID = '12345678-1234-5678-1234-56789abcdef1';
-export const DEFAULT_RESP_CHARACTERISTIC_UUID = '12345678-1234-5678-1234-56789abcdef2';
+/* 16-bit custom UUIDs expanded to their canonical 128-bit form.
+ * Service: 0x1234, CMD: 0x1235, RESP: 0x1236 */
+export const DEFAULT_SERVICE_UUID = '00001234-0000-1000-8000-00805f9b34fb'.toLowerCase();
+export const DEFAULT_CMD_CHARACTERISTIC_UUID = '00001235-0000-1000-8000-00805f9b34fb'.toLowerCase();
+export const DEFAULT_RESP_CHARACTERISTIC_UUID = '00001236-0000-1000-8000-00805f9b34fb'.toLowerCase();
 
 /** Default device name filter. */
 export const DEFAULT_DEVICE_NAME = 'WM8741_DAC';

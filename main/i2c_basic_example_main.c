@@ -15,6 +15,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
+#include "nvs_flash.h"
 #include "driver/i2c_master.h"
 #include "wm8741_commands.h"
 #include "ble_gatt_server.h"
@@ -91,6 +92,15 @@ static void wm8741_init(void)
 /* ==================== 主函数 ==================== */
 void app_main(void)
 {
+    // NVS is required by the Bluetooth controller/Bluedroid stack even when
+    // Wi-Fi is disabled.
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
+
     // I2C
     i2c_master_bus_config_t bus_config = {
         .i2c_port = I2C_MASTER_NUM,

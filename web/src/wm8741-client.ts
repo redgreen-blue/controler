@@ -177,7 +177,13 @@ export class WM8741BLEClient extends EventTarget {
       const service = await this.gattManager.getPrimaryService(
         this.server,
         this.options.serviceUuid
-      );
+      ).catch((err) => {
+        throw new ConnectionError(
+          `Service ${this.options.serviceUuid} not found on the device. ` +
+          'Please verify that the ESP32 GATT server has started and that the UUID matches.',
+          err
+        );
+      });
 
       const characteristics = await this.gattManager.getCharacteristics(service, [
         this.options.cmdCharacteristicUuid,

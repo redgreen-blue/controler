@@ -23,9 +23,12 @@
 
 static const char *TAG = "ble_gatt";
 
-#define WM8741_SERVICE_UUID             0xF0, 0xDE, 0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12, 0x12, 0x34, 0x56, 0x78, 0x12, 0x34, 0x56, 0x78
-#define WM8741_CMD_CHAR_UUID            0xF1, 0xDE, 0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12, 0x12, 0x34, 0x56, 0x78, 0x12, 0x34, 0x56, 0x78
-#define WM8741_RESP_CHAR_UUID           0xF2, 0xDE, 0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12, 0x12, 0x34, 0x56, 0x78, 0x12, 0x34, 0x56, 0x78
+/* 16-bit custom UUIDs for better cross-platform compatibility.
+ * Stored in little-endian byte order.
+ * Service: 0x1234, CMD: 0x1235, RESP: 0x1236 */
+#define WM8741_SERVICE_UUID             0x34, 0x12
+#define WM8741_CMD_CHAR_UUID            0x35, 0x12
+#define WM8741_RESP_CHAR_UUID           0x36, 0x12
 
 #define GATTS_TABLE_TAG                 "GATTS_TABLE"
 #define WM8741_DEVICE_NAME              "WM8741_DAC"
@@ -53,12 +56,6 @@ static uint8_t adv_config_done = 0;
 #define ADV_CONFIG_FLAG             (1 << 0)
 #define SCAN_RSP_CONFIG_FLAG        (1 << 1)
 
-static uint8_t adv_service_uuid[16] = {
-    /* LSB first: 12345678-1234-5678-1234-56789abcdef0 */
-    0xF0, 0xDE, 0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12,
-    0x12, 0x34, 0x56, 0x78, 0x12, 0x34, 0x56, 0x78
-};
-
 static esp_ble_adv_params_t adv_params = {
     .adv_int_min         = 0x20,
     .adv_int_max         = 0x40,
@@ -71,7 +68,7 @@ static esp_ble_adv_params_t adv_params = {
 static esp_ble_adv_data_t adv_data = {
     .set_scan_rsp        = false,
     .include_name        = true,
-    .include_txpower     = true,
+    .include_txpower     = false,
     .min_interval        = 0x0006,
     .max_interval        = 0x0010,
     .appearance          = 0x00,
@@ -79,15 +76,15 @@ static esp_ble_adv_data_t adv_data = {
     .p_manufacturer_data = NULL,
     .service_data_len    = 0,
     .p_service_data      = NULL,
-    .service_uuid_len    = sizeof(adv_service_uuid),
-    .p_service_uuid      = adv_service_uuid,
+    .service_uuid_len    = 0,
+    .p_service_uuid      = NULL,
     .flag = (ESP_BLE_ADV_FLAG_GEN_DISC | ESP_BLE_ADV_FLAG_BREDR_NOT_SPT),
 };
 
 static esp_ble_adv_data_t scan_rsp_data = {
     .set_scan_rsp        = true,
     .include_name        = true,
-    .include_txpower     = true,
+    .include_txpower     = false,
     .min_interval        = 0x0006,
     .max_interval        = 0x0010,
     .appearance          = 0x00,
@@ -95,8 +92,8 @@ static esp_ble_adv_data_t scan_rsp_data = {
     .p_manufacturer_data = NULL,
     .service_data_len    = 0,
     .p_service_data      = NULL,
-    .service_uuid_len    = sizeof(adv_service_uuid),
-    .p_service_uuid      = adv_service_uuid,
+    .service_uuid_len    = 0,
+    .p_service_uuid      = NULL,
     .flag = (ESP_BLE_ADV_FLAG_GEN_DISC | ESP_BLE_ADV_FLAG_BREDR_NOT_SPT),
 };
 
@@ -110,10 +107,10 @@ static const uint8_t resp_ccc[2] = {0x00, 0x00};
 static uint8_t cmd_value[CMD_MAX_LEN] = {0};
 static uint8_t resp_value[RESP_MAX_LEN] = {0};
 
-/* Full 128-bit UUIDs for service and characteristics (used in attribute table) */
-static const uint8_t service_uuid_full[16] = {WM8741_SERVICE_UUID};
-static const uint8_t cmd_char_uuid_full[16] = {WM8741_CMD_CHAR_UUID};
-static const uint8_t resp_char_uuid_full[16] = {WM8741_RESP_CHAR_UUID};
+/* 16-bit UUIDs for service and characteristics (used in attribute table) */
+static const uint8_t service_uuid_full[2] = {WM8741_SERVICE_UUID};
+static const uint8_t cmd_char_uuid_full[2] = {WM8741_CMD_CHAR_UUID};
+static const uint8_t resp_char_uuid_full[2] = {WM8741_RESP_CHAR_UUID};
 
 /* GATT attribute table */
 static const esp_gatts_attr_db_t gatt_db[HRS_IDX_NB] = {
@@ -134,7 +131,7 @@ static const esp_gatts_attr_db_t gatt_db[HRS_IDX_NB] = {
     /* CMD Characteristic Value */
     [IDX_CHAR_VAL_CMD] = {
         {ESP_GATT_AUTO_RSP},
-        {ESP_UUID_LEN_128, (uint8_t *)cmd_char_uuid_full,
+        {ESP_UUID_LEN_16, (uint8_t *)cmd_char_uuid_full,
          ESP_GATT_PERM_WRITE,
          CMD_MAX_LEN, sizeof(cmd_value), cmd_value}
     },
@@ -149,7 +146,7 @@ static const esp_gatts_attr_db_t gatt_db[HRS_IDX_NB] = {
     /* RESP Characteristic Value */
     [IDX_CHAR_VAL_RESP] = {
         {ESP_GATT_AUTO_RSP},
-        {ESP_UUID_LEN_128, (uint8_t *)resp_char_uuid_full,
+        {ESP_UUID_LEN_16, (uint8_t *)resp_char_uuid_full,
          ESP_GATT_PERM_READ,
          RESP_MAX_LEN, sizeof(resp_value), resp_value}
     },
@@ -256,12 +253,20 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event,
     case ESP_GATTS_CREAT_ATTR_TAB_EVT: {
         if (param->add_attr_tab.status != ESP_GATT_OK) {
             ESP_LOGE(TAG, "Create attribute table failed, error code=0x%x", param->add_attr_tab.status);
+            abort();
         } else if (param->add_attr_tab.num_handle != HRS_IDX_NB) {
             ESP_LOGE(TAG, "Create attribute table abnormally, num_handle (%d) doesn't equal to HRS_IDX_NB(%d)",
                      param->add_attr_tab.num_handle, HRS_IDX_NB);
+            abort();
         } else {
             memcpy(heart_rate_handle_table, param->add_attr_tab.handles, sizeof(heart_rate_handle_table));
-            esp_ble_gatts_start_service(heart_rate_handle_table[IDX_SVC]);
+            esp_err_t ret = esp_ble_gatts_start_service(heart_rate_handle_table[IDX_SVC]);
+            if (ret != ESP_OK) {
+                ESP_LOGE(TAG, "Start service failed, error code=0x%x", ret);
+                abort();
+            }
+            ESP_LOGI(TAG, "GATT service started successfully, handle=0x%04x",
+                     heart_rate_handle_table[IDX_SVC]);
         }
         break;
     }

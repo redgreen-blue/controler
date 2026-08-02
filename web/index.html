@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>WM8741 BLE 控制</title>
     <style>
         body { font-family: Arial, sans-serif; max-width: 500px; margin: 20px auto; padding: 10px; background: #f0f0f0; }
@@ -30,6 +33,9 @@
 </head>
 <body>
     <h1>🎛️ WM8741 BLE 控制</h1>
+    <p style="text-align:center; color:#666; font-size:12px; margin-top:-10px;">
+        v2 · Service: 0x1234
+    </p>
 
     <div id="contextBanner" class="banner hidden"></div>
 
@@ -89,7 +95,7 @@
         <div class="log" id="logArea">等待连接...</div>
     </div>
 
-    <script src="./dist/wm8741-ble.umd.js"></script>
+    <script src="./dist/wm8741-ble.umd.js?v=2"></script>
     <script>
         const client = new WM8741BLE.WM8741BLEClient();
 
