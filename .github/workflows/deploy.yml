@@ -36,6 +36,10 @@ jobs:
         working-directory: web
         run: npm run build
 
+      - name: Remove dev dependencies from artifact
+        working-directory: web
+        run: rm -rf node_modules
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
