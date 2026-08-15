@@ -28,6 +28,9 @@ extern void wm8741_set_attenuation(uint16_t att_value);
 extern esp_err_t wm8741_update_reg_bit_ch(wm8741_channel_t ch, uint8_t reg, uint8_t bit_mask, uint8_t bit_value);
 extern esp_err_t wm8741_set_attenuation_ch(wm8741_channel_t ch, uint16_t att_value);
 
+/* MCLK source crystal selection. Defined in i2c_basic_example_main.c */
+extern esp_err_t wm8741_set_mclk_freq(bool use_22mhz);
+
 /* ==================== Channel helpers ==================== */
 
 static i2c_master_dev_handle_t dev_for_channel(wm8741_channel_t ch)
@@ -335,6 +338,24 @@ fail:
     return ESP_OK;
 }
 
+static esp_err_t cmd_mclk(const char *args, char *response, size_t response_len)
+{
+    int freq;
+    if (sscanf(args, "%d", &freq) != 1 || (freq != 22 && freq != 24)) {
+        snprintf(response, response_len, "ERR Use: MCLK 22|24\n");
+        return ESP_OK;
+    }
+
+    /* MCLK 为系统级信号，左右声道共用，无需通道参数 */
+    esp_err_t ret = wm8741_set_mclk_freq(freq == 22);
+    if (ret == ESP_OK) {
+        snprintf(response, response_len, "OK MCLK %dMHz\n", freq);
+    } else {
+        snprintf(response, response_len, "ERR MCLK failed: %d\n", ret);
+    }
+    return ESP_OK;
+}
+
 static esp_err_t cmd_set_reg(wm8741_channel_t ch, const char *args, char *response, size_t response_len)
 {
     unsigned int reg, val;
@@ -410,6 +431,10 @@ esp_err_t wm8741_handle_command(const char *cmd, char *response, size_t response
         args = cmd + 6;
         wm8741_channel_t ch = parse_channel(&args);
         return cmd_format(ch, args, response, response_len);
+    }
+    else if (strncmp(cmd_lower, "mclk", 4) == 0) {
+        args = cmd + 4;
+        return cmd_mclk(args, response, response_len);
     }
     else if (strncmp(cmd_lower, "deemph", 6) == 0) {
         args = cmd + 6;

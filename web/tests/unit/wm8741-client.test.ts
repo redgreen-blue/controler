@@ -172,6 +172,29 @@ describe('WM8741BLEClient', () => {
     expect(lastCommand).toBe('FORMAT LEFT 1 3\n');
   });
 
+  it('sends an MCLK command and validates its argument', async () => {
+    const device = createFakeWM8741Device();
+    installFakeBluetooth({ nextDevice: device });
+
+    const client = new WM8741BLEClient();
+    await client.connect();
+
+    const service = device.gattServer.services.get(DEFAULT_SERVICE_UUID.toLowerCase())!;
+    const cmdCharacteristic = service.characteristics.get(DEFAULT_CMD_CHARACTERISTIC_UUID.toLowerCase())!;
+    const respCharacteristic = service.characteristics.get(DEFAULT_RESP_CHARACTERISTIC_UUID.toLowerCase())!;
+
+    const promise = client.setMclkFrequency(22);
+    setTimeout(() => respCharacteristic.dispatchResponse('OK MCLK 22MHz'), 10);
+    await promise;
+
+    const written = cmdCharacteristic.getWrittenValues();
+    const lastCommand = new TextDecoder().decode(written[written.length - 1]);
+    expect(lastCommand).toBe('MCLK 22\n');
+
+    await expect(client.setMclkFrequency(44.1 as 22)).rejects.toThrow(ProtocolError);
+    await expect(client.setMclkFrequency(0 as 22)).rejects.toThrow(ProtocolError);
+  });
+
   it('sends per-channel volume commands', async () => {
     const device = createFakeWM8741Device();
     installFakeBluetooth({ nextDevice: device });

@@ -345,6 +345,16 @@ export class WM8741BLEClient extends EventTarget {
     );
   }
 
+  /**
+   * Switch the MCLK source crystal. System-wide, shared by both channels.
+   *
+   * @param freq 22 for the 22 MHz crystal, 24 for the 24 MHz crystal.
+   */
+  async setMclkFrequency(freq: 22 | 24): Promise<string> {
+    CommandProtocol.validateMclkFrequency(freq);
+    return this.sendCommand(`MCLK ${freq}`);
+  }
+
   // ===== Event helpers =====
 
   addEventListener(

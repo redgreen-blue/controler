@@ -20,6 +20,7 @@
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "driver/i2c_master.h"
+#include "driver/gpio.h"
 #include "wm8741_commands.h"
 #include "ble_gatt_server.h"
 
@@ -29,6 +30,10 @@
 #define I2C_MASTER_NUM              I2C_NUM_0
 #define I2C_MASTER_FREQ_HZ          CONFIG_I2C_MASTER_FREQUENCY
 #define I2C_MASTER_TIMEOUT_MS       1000
+
+/* ==================== MCLK 选择配置 ==================== */
+#define MCLK_SEL_GPIO               CONFIG_MCLK_SEL_GPIO
+#define MCLK_SEL_DEFAULT            CONFIG_MCLK_SEL_DEFAULT  /* 1=22MHz 0=24MHz */
 
 /* ==================== 影子寄存器 ==================== */
 uint8_t wm8741_regs[0x80];
@@ -162,6 +167,35 @@ static void wm8741_init(void)
     }
 }
 
+/* ==================== MCLK 频率选择 ==================== */
+
+/**
+ * @brief Switch the MCLK source crystal.
+ *
+ * @param use_22mhz  true  -> GPIO high (22 MHz crystal)
+ *                   false -> GPIO low  (24 MHz crystal)
+ */
+esp_err_t wm8741_set_mclk_freq(bool use_22mhz)
+{
+    gpio_set_level(MCLK_SEL_GPIO, use_22mhz ? 1 : 0);
+    return ESP_OK;
+}
+
+static void mclk_sel_init(void)
+{
+    gpio_config_t io = {
+        .pin_bit_mask = 1ULL << MCLK_SEL_GPIO,
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    gpio_config(&io);
+    gpio_set_level(MCLK_SEL_GPIO, MCLK_SEL_DEFAULT);
+    ESP_LOGI(TAG, "MCLK select: GPIO %d, default %d MHz",
+             MCLK_SEL_GPIO, MCLK_SEL_DEFAULT ? 22 : 24);
+}
+
 /* ==================== 主函数 ==================== */
 void app_main(void)
 {
@@ -203,6 +237,7 @@ void app_main(void)
     dev_handle = dev_handle_left;
 
     memset(wm8741_regs, 0, sizeof(wm8741_regs));
+    mclk_sel_init();
     wm8741_init();
 
     // 启动 BLE GATT 服务器

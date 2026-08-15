@@ -81,6 +81,7 @@ typedef enum {
  *   ATTEN [L/R/BOTH] 0-1023
  *   FILTER [L/R/BOTH] 1-5
  *   FORMAT [L/R/BOTH] <fmt 0=RJ 1=LJ 2=I2S 3=DSP> <iwl 0=16 1=20 2=24 3=32>
+ *   MCLK 22|24
  *   DEEMPH [L/R/BOTH] 0-3
  *   ANTICLIP [L/R/BOTH] 0/1
  *   SET_REG [L/R/BOTH] <hex_reg> <hex_val>

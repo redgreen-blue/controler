@@ -90,6 +90,18 @@
     </div>
 
     <div class="card">
+        <h2>时钟频率 (MCLK)</h2>
+        <div class="row">
+            <span class="label">选择</span>
+            <div class="radio-group" id="mclkGroup">
+                <label><input type="radio" name="mclk" value="22" disabled> 22 MHz</label>
+                <label><input type="radio" name="mclk" value="24" checked disabled> 24 MHz</label>
+            </div>
+            <button id="applyMclk" disabled>应用</button>
+        </div>
+    </div>
+
+    <div class="card">
         <h2>开关选项</h2>
         <div class="checkbox-group">
             <label><input type="checkbox" id="muteChk" disabled> 静音</label>
@@ -116,7 +128,7 @@
         <div class="log" id="logArea">等待连接...</div>
     </div>
 
-    <script src="./dist/wm8741-ble.umd.js?v=2"></script>
+    <script src="./dist/wm8741-ble.umd.js?v=3"></script>
     <script>
         const client = new WM8741BLE.WM8741BLEClient();
 
@@ -130,6 +142,8 @@
         const fmtSelect = document.getElementById('fmtSelect');
         const iwlSelect = document.getElementById('iwlSelect');
         const applyFmt = document.getElementById('applyFmt');
+        const mclkRadios = document.querySelectorAll('input[name="mclk"]');
+        const applyMclk = document.getElementById('applyMclk');
         const muteChk = document.getElementById('muteChk');
         const rampChk = document.getElementById('rampChk');
         const anticlipChk = document.getElementById('anticlipChk');
@@ -140,7 +154,7 @@
         const writeReg = document.getElementById('writeReg');
         const contextBanner = document.getElementById('contextBanner');
 
-        const controls = [volSlider, applyVol, ...filterRadios, fmtSelect, iwlSelect, applyFmt, muteChk, rampChk, anticlipChk, applyOpts, resetBtn, regAddr, regVal, writeReg];
+        const controls = [volSlider, applyVol, ...filterRadios, fmtSelect, iwlSelect, applyFmt, ...mclkRadios, applyMclk, muteChk, rampChk, anticlipChk, applyOpts, resetBtn, regAddr, regVal, writeReg];
 
         function setControlsEnabled(enabled) {
             controls.forEach(el => el.disabled = !enabled);
@@ -259,6 +273,17 @@
             try {
                 const response = await client.setFormat(Number(fmtSelect.value), Number(iwlSelect.value));
                 log('> FORMAT ' + fmtSelect.value + ' ' + iwlSelect.value + ' => ' + response);
+            } catch (err) {
+                log('错误: ' + err.message);
+            }
+        });
+
+        applyMclk.addEventListener('click', async () => {
+            const selected = document.querySelector('input[name="mclk"]:checked');
+            if (!selected) return;
+            try {
+                const response = await client.setMclkFrequency(Number(selected.value));
+                log('> MCLK ' + selected.value + ' => ' + response);
             } catch (err) {
                 log('错误: ' + err.message);
             }

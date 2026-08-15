@@ -101,6 +101,13 @@ describe('CommandProtocol', () => {
       expect(() => CommandProtocol.validateFormat(2, 1.5)).toThrow(ProtocolError);
     });
 
+    it('validates MCLK frequency', () => {
+      expect(() => CommandProtocol.validateMclkFrequency(22)).not.toThrow();
+      expect(() => CommandProtocol.validateMclkFrequency(24)).not.toThrow();
+      expect(() => CommandProtocol.validateMclkFrequency(44.1)).toThrow(ProtocolError);
+      expect(() => CommandProtocol.validateMclkFrequency(0)).toThrow(ProtocolError);
+    });
+
     it('validates channel target', () => {
       expect(() => CommandProtocol.validateChannel('both')).not.toThrow();
       expect(() => CommandProtocol.validateChannel('left')).not.toThrow();

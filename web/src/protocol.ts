@@ -142,6 +142,17 @@ export class CommandProtocol {
   }
 
   /**
+   * Validate an MCLK source frequency for the WM8741.
+   *
+   * @throws {ProtocolError} if not 22 or 24 MHz.
+   */
+  static validateMclkFrequency(freq: number): void {
+    if (freq !== 22 && freq !== 24) {
+      throw new ProtocolError('MCLK frequency must be 22 or 24 MHz');
+    }
+  }
+
+  /**
    * Validate a channel target for dual-WM8741 configurations.
    *
    * @throws {ProtocolError} if invalid.

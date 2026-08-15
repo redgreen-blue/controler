@@ -15,6 +15,22 @@ menu "WM8741 Control"
         default 100000
         range 1 400000
 
+    config MCLK_SEL_GPIO
+        int "MCLK select GPIO"
+        help
+            GPIO used to switch the MCLK source crystal. Output high (1)
+            selects the 22 MHz crystal, output low (0) selects 24 MHz.
+        default 10
+        range 0 39
+
+    config MCLK_SEL_DEFAULT
+        int "MCLK select default (1=22MHz, 0=24MHz)"
+        help
+            Level applied to the MCLK select GPIO at boot.
+            0 selects 24 MHz, 1 selects 22 MHz.
+        default 0
+        range 0 1
+
     config ESP_WIFI_SSID
         string "Wi-Fi SSID"
         default "myssid"
