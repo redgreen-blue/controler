@@ -153,6 +153,24 @@ export class CommandProtocol {
   }
 
   /**
+   * Validate an input sample rate (kHz) supported by the firmware.
+   *
+   * The firmware auto-selects the matching MCLK crystal:
+   * 44.1 kHz family (44.1/88.2/176.4) -> 22 MHz,
+   * 48 kHz family (32/48/96/192) -> 24 MHz.
+   *
+   * @throws {ProtocolError} if not a supported rate.
+   */
+  static validateSampleRate(rate: number): void {
+    const supported = [32, 44.1, 48, 88.2, 96, 176.4, 192];
+    if (!supported.includes(rate)) {
+      throw new ProtocolError(
+        'Sample rate must be one of 32, 44.1, 48, 88.2, 96, 176.4, or 192 kHz'
+      );
+    }
+  }
+
+  /**
    * Validate a channel target for dual-WM8741 configurations.
    *
    * @throws {ProtocolError} if invalid.

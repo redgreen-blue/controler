@@ -102,6 +102,37 @@
     </div>
 
     <div class="card">
+        <h2>输入采样率 (SRATE)</h2>
+        <div class="row">
+            <span class="label">选择</span>
+            <select id="srateSelect" disabled>
+                <option value="48" selected>48 kHz</option>
+                <option value="32">32 kHz</option>
+                <option value="44.1">44.1 kHz</option>
+                <option value="88.2">88.2 kHz</option>
+                <option value="96">96 kHz</option>
+                <option value="176.4">176.4 kHz</option>
+                <option value="192">192 kHz</option>
+            </select>
+            <button id="applySrate" disabled>应用</button>
+        </div>
+        <p style="font-size:12px; color:#666; margin:4px 0 0;">44.1kHz 系列自动切换 22MHz 时钟，48kHz 系列自动切换 24MHz 时钟</p>
+    </div>
+
+    <div class="card">
+        <h2>去加重 (DEEMPH)</h2>
+        <div class="row">
+            <span class="label">选择</span>
+            <div class="radio-group" id="deemphGroup">
+                <label><input type="radio" name="deemph" value="0" checked disabled> 关</label>
+                <label><input type="radio" name="deemph" value="1" disabled> 44.1 kHz</label>
+                <label><input type="radio" name="deemph" value="2" disabled> 48 kHz</label>
+                <label><input type="radio" name="deemph" value="3" disabled> 32 kHz</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
         <h2>开关选项</h2>
         <div class="checkbox-group">
             <label><input type="checkbox" id="muteChk" disabled> 静音</label>
@@ -128,7 +159,7 @@
         <div class="log" id="logArea">等待连接...</div>
     </div>
 
-    <script src="./dist/wm8741-ble.umd.js?v=3"></script>
+    <script src="./dist/wm8741-ble.umd.js?v=4"></script>
     <script>
         const client = new WM8741BLE.WM8741BLEClient();
 
@@ -144,6 +175,9 @@
         const applyFmt = document.getElementById('applyFmt');
         const mclkRadios = document.querySelectorAll('input[name="mclk"]');
         const applyMclk = document.getElementById('applyMclk');
+        const srateSelect = document.getElementById('srateSelect');
+        const applySrate = document.getElementById('applySrate');
+        const deemphRadios = document.querySelectorAll('input[name="deemph"]');
         const muteChk = document.getElementById('muteChk');
         const rampChk = document.getElementById('rampChk');
         const anticlipChk = document.getElementById('anticlipChk');
@@ -154,7 +188,7 @@
         const writeReg = document.getElementById('writeReg');
         const contextBanner = document.getElementById('contextBanner');
 
-        const controls = [volSlider, applyVol, ...filterRadios, fmtSelect, iwlSelect, applyFmt, ...mclkRadios, applyMclk, muteChk, rampChk, anticlipChk, applyOpts, resetBtn, regAddr, regVal, writeReg];
+        const controls = [volSlider, applyVol, ...filterRadios, fmtSelect, iwlSelect, applyFmt, ...mclkRadios, applyMclk, srateSelect, applySrate, ...deemphRadios, muteChk, rampChk, anticlipChk, applyOpts, resetBtn, regAddr, regVal, writeReg];
 
         function setControlsEnabled(enabled) {
             controls.forEach(el => el.disabled = !enabled);
@@ -287,6 +321,27 @@
             } catch (err) {
                 log('错误: ' + err.message);
             }
+        });
+
+        applySrate.addEventListener('click', async () => {
+            try {
+                const response = await client.setSampleRate(Number(srateSelect.value));
+                log('> SRATE ' + srateSelect.value + ' => ' + response);
+            } catch (err) {
+                log('错误: ' + err.message);
+            }
+        });
+
+        deemphRadios.forEach(radio => {
+            radio.addEventListener('change', async () => {
+                if (!radio.checked) return;
+                try {
+                    const response = await client.setDeEmphasis(Number(radio.value));
+                    log('> DEEMPH ' + radio.value + ' => ' + response);
+                } catch (err) {
+                    log('错误: ' + err.message);
+                }
+            });
         });
 
         applyOpts.addEventListener('click', async () => {

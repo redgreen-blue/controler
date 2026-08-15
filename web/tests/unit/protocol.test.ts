@@ -108,6 +108,13 @@ describe('CommandProtocol', () => {
       expect(() => CommandProtocol.validateMclkFrequency(0)).toThrow(ProtocolError);
     });
 
+    it('validates sample rate', () => {
+      expect(() => CommandProtocol.validateSampleRate(44.1)).not.toThrow();
+      expect(() => CommandProtocol.validateSampleRate(192)).not.toThrow();
+      expect(() => CommandProtocol.validateSampleRate(44)).toThrow(ProtocolError);
+      expect(() => CommandProtocol.validateSampleRate(0)).toThrow(ProtocolError);
+    });
+
     it('validates channel target', () => {
       expect(() => CommandProtocol.validateChannel('both')).not.toThrow();
       expect(() => CommandProtocol.validateChannel('left')).not.toThrow();

@@ -12,6 +12,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <math.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "wm8741_commands.h"
 #include "driver/i2c_master.h"
 
@@ -30,6 +33,32 @@ extern esp_err_t wm8741_set_attenuation_ch(wm8741_channel_t ch, uint16_t att_val
 
 /* MCLK source crystal selection. Defined in i2c_basic_example_main.c */
 extern esp_err_t wm8741_set_mclk_freq(bool use_22mhz);
+
+/* System-wide mute protection. Defined in i2c_basic_example_main.c */
+extern esp_err_t wm8741_mute_all(void);
+extern esp_err_t wm8741_unmute_all(void);
+
+/* ==================== 静音保护辅助 ==================== */
+
+/**
+ * @brief Mute both DACs before a critical switch, remembering the previous
+ *        mute state so it can be restored afterwards.
+ */
+static esp_err_t mute_begin(bool *was_muted)
+{
+    *was_muted = (wm8741_regs[WM8741_REG_VOLUME_CTRL] & VOL_SOFTMUTE) != 0;
+    return wm8741_mute_all();
+}
+
+/**
+ * @brief Restore the previous mute state after a critical switch.
+ */
+static void mute_end(bool was_muted)
+{
+    if (!was_muted) {
+        wm8741_unmute_all();
+    }
+}
 
 /* ==================== Channel helpers ==================== */
 
@@ -315,24 +344,35 @@ static esp_err_t cmd_format(wm8741_channel_t ch, const char *args, char *respons
     const uint8_t format_mask = (uint8_t)((0x03 << FMT_IWL_SHIFT) | (0x03 << FMT_FMT_SHIFT));
     esp_err_t ret;
 
+    /* 输入格式切换前先静音，避免切换瞬间输出毛刺 */
+    bool was_muted;
+    ret = mute_begin(&was_muted);
+    if (ret != ESP_OK) goto fail;
+    vTaskDelay(pdMS_TO_TICKS(20));
+
     if (ch == WM8741_CH_BOTH) {
         uint8_t current_left = (uint8_t)((wm8741_regs[WM8741_REG_FORMAT_CTRL] & ~format_mask) | new_val);
         ret = wm8741_write_reg(dev_handle_left, WM8741_REG_FORMAT_CTRL, current_left);
-        if (ret != ESP_OK) goto fail;
+        if (ret != ESP_OK) goto fail_unmute;
 
         uint8_t current_right = (uint8_t)((wm8741_regs[WM8741_REG_FORMAT_CTRL] & ~format_mask) | new_val);
         ret = wm8741_write_reg(dev_handle_right, WM8741_REG_FORMAT_CTRL, current_right);
-        if (ret != ESP_OK) goto fail;
+        if (ret != ESP_OK) goto fail_unmute;
     } else {
         i2c_master_dev_handle_t dev = dev_for_channel(ch);
         uint8_t current = (uint8_t)((wm8741_regs[WM8741_REG_FORMAT_CTRL] & ~format_mask) | new_val);
         ret = wm8741_write_reg(dev, WM8741_REG_FORMAT_CTRL, current);
-        if (ret != ESP_OK) goto fail;
+        if (ret != ESP_OK) goto fail_unmute;
     }
+
+    vTaskDelay(pdMS_TO_TICKS(20));
+    mute_end(was_muted);
 
     snprintf(response, response_len, "OK Format %s %d %d\n", channel_name(ch), fmt, iwl);
     return ESP_OK;
 
+fail_unmute:
+    mute_end(was_muted);
 fail:
     snprintf(response, response_len, "ERR Format %s failed: %d\n", channel_name(ch), ret);
     return ESP_OK;
@@ -346,12 +386,98 @@ static esp_err_t cmd_mclk(const char *args, char *response, size_t response_len)
         return ESP_OK;
     }
 
-    /* MCLK 为系统级信号，左右声道共用，无需通道参数 */
-    esp_err_t ret = wm8741_set_mclk_freq(freq == 22);
+    /* MCLK 为系统级信号，切换时钟前先静音，切换稳定后再恢复 */
+    bool was_muted;
+    esp_err_t ret = mute_begin(&was_muted);
+    if (ret != ESP_OK) goto done;
+    vTaskDelay(pdMS_TO_TICKS(20));
+
+    ret = wm8741_set_mclk_freq(freq == 22);
+    if (ret == ESP_OK) {
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+    mute_end(was_muted);
+
+done:
     if (ret == ESP_OK) {
         snprintf(response, response_len, "OK MCLK %dMHz\n", freq);
     } else {
         snprintf(response, response_len, "ERR MCLK failed: %d\n", ret);
+    }
+    return ESP_OK;
+}
+
+/**
+ * @brief Sample rate table: input rate (kHz) -> WM8741 SR[2:0] code and the
+ *        matching MCLK crystal (true = 22 MHz, false = 24 MHz).
+ *
+ * 44.1 kHz family (44.1/88.2/176.4) uses the 22 MHz crystal,
+ * 48 kHz family (32/48/96/192) uses the 24 MHz crystal.
+ */
+typedef struct {
+    float rate;
+    uint8_t sr_code;
+    bool use_22mhz;
+} srate_entry_t;
+
+static const srate_entry_t srate_table[] = {
+    { 32.0f,   0, false },
+    { 44.1f,   1, true  },
+    { 48.0f,   2, false },
+    { 88.2f,   3, true  },
+    { 96.0f,   4, false },
+    { 176.4f,  5, true  },
+    { 192.0f,  6, false },
+};
+
+static esp_err_t cmd_srate(const char *args, char *response, size_t response_len)
+{
+    float rate;
+    if (sscanf(args, "%f", &rate) != 1) {
+        snprintf(response, response_len, "ERR Use: SRATE 32|44.1|48|88.2|96|176.4|192\n");
+        return ESP_OK;
+    }
+
+    const srate_entry_t *entry = NULL;
+    for (size_t i = 0; i < sizeof(srate_table) / sizeof(srate_table[0]); i++) {
+        if (fabsf(rate - srate_table[i].rate) < 0.01f) {
+            entry = &srate_table[i];
+            break;
+        }
+    }
+    if (entry == NULL) {
+        snprintf(response, response_len, "ERR Unsupported sample rate: %.1f\n", rate);
+        return ESP_OK;
+    }
+
+    /* 与主时钟联动：先静音，切换 MCLK，再写采样率寄存器，最后恢复 */
+    bool was_muted;
+    esp_err_t ret = mute_begin(&was_muted);
+    if (ret != ESP_OK) goto done;
+    vTaskDelay(pdMS_TO_TICKS(20));
+
+    ret = wm8741_set_mclk_freq(entry->use_22mhz);
+    if (ret != ESP_OK) goto restore;
+    vTaskDelay(pdMS_TO_TICKS(50));
+
+    uint8_t new_mode1 = (uint8_t)((wm8741_regs[WM8741_REG_MODE_CTRL1] & ~(0x07 << MODE_SR_SHIFT)) |
+                                  (entry->sr_code << MODE_SR_SHIFT));
+    ret = wm8741_write_reg(dev_handle_left, WM8741_REG_MODE_CTRL1, new_mode1);
+    if (ret != ESP_OK) goto restore;
+    ret = wm8741_write_reg(dev_handle_right, WM8741_REG_MODE_CTRL1, new_mode1);
+    if (ret != ESP_OK) goto restore;
+
+    vTaskDelay(pdMS_TO_TICKS(20));
+
+restore:
+    mute_end(was_muted);
+
+done:
+    if (ret == ESP_OK) {
+        snprintf(response, response_len, "OK SRATE %.1fkHz (MCLK %dMHz)\n",
+                 entry->rate, entry->use_22mhz ? 22 : 24);
+    } else {
+        snprintf(response, response_len, "ERR SRATE failed: %d\n", ret);
     }
     return ESP_OK;
 }
@@ -435,6 +561,10 @@ esp_err_t wm8741_handle_command(const char *cmd, char *response, size_t response
     else if (strncmp(cmd_lower, "mclk", 4) == 0) {
         args = cmd + 4;
         return cmd_mclk(args, response, response_len);
+    }
+    else if (strncmp(cmd_lower, "srate", 5) == 0) {
+        args = cmd + 5;
+        return cmd_srate(args, response, response_len);
     }
     else if (strncmp(cmd_lower, "deemph", 6) == 0) {
         args = cmd + 6;

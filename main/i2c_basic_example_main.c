@@ -196,6 +196,18 @@ static void mclk_sel_init(void)
              MCLK_SEL_GPIO, MCLK_SEL_DEFAULT ? 22 : 24);
 }
 
+/* ==================== 静音保护 ==================== */
+
+esp_err_t wm8741_mute_all(void)
+{
+    return wm8741_update_reg_bit(WM8741_REG_VOLUME_CTRL, VOL_SOFTMUTE, 1);
+}
+
+esp_err_t wm8741_unmute_all(void)
+{
+    return wm8741_update_reg_bit(WM8741_REG_VOLUME_CTRL, VOL_SOFTMUTE, 0);
+}
+
 /* ==================== 主函数 ==================== */
 void app_main(void)
 {

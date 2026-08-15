@@ -355,6 +355,20 @@ export class WM8741BLEClient extends EventTarget {
     return this.sendCommand(`MCLK ${freq}`);
   }
 
+  /**
+   * Set the input sample rate of the WM8741.
+   *
+   * The firmware coordinates the switch with the MCLK crystal
+   * (44.1 kHz family -> 22 MHz, 48 kHz family -> 24 MHz) and applies
+   * mute protection during the transition.
+   *
+   * @param rate Sample rate in kHz (32, 44.1, 48, 88.2, 96, 176.4, 192).
+   */
+  async setSampleRate(rate: number): Promise<string> {
+    CommandProtocol.validateSampleRate(rate);
+    return this.sendCommand(`SRATE ${rate}`);
+  }
+
   // ===== Event helpers =====
 
   addEventListener(

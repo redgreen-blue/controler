@@ -195,6 +195,49 @@ describe('WM8741BLEClient', () => {
     await expect(client.setMclkFrequency(0 as 22)).rejects.toThrow(ProtocolError);
   });
 
+  it('sends an SRATE command and validates its argument', async () => {
+    const device = createFakeWM8741Device();
+    installFakeBluetooth({ nextDevice: device });
+
+    const client = new WM8741BLEClient();
+    await client.connect();
+
+    const service = device.gattServer.services.get(DEFAULT_SERVICE_UUID.toLowerCase())!;
+    const cmdCharacteristic = service.characteristics.get(DEFAULT_CMD_CHARACTERISTIC_UUID.toLowerCase())!;
+    const respCharacteristic = service.characteristics.get(DEFAULT_RESP_CHARACTERISTIC_UUID.toLowerCase())!;
+
+    const promise = client.setSampleRate(44.1);
+    setTimeout(() => respCharacteristic.dispatchResponse('OK SRATE 44.1kHz (MCLK 22MHz)'), 10);
+    await promise;
+
+    const written = cmdCharacteristic.getWrittenValues();
+    const lastCommand = new TextDecoder().decode(written[written.length - 1]);
+    expect(lastCommand).toBe('SRATE 44.1\n');
+
+    await expect(client.setSampleRate(44)).rejects.toThrow(ProtocolError);
+    await expect(client.setSampleRate(0)).rejects.toThrow(ProtocolError);
+  });
+
+  it('sends a DEEMPH command', async () => {
+    const device = createFakeWM8741Device();
+    installFakeBluetooth({ nextDevice: device });
+
+    const client = new WM8741BLEClient();
+    await client.connect();
+
+    const service = device.gattServer.services.get(DEFAULT_SERVICE_UUID.toLowerCase())!;
+    const cmdCharacteristic = service.characteristics.get(DEFAULT_CMD_CHARACTERISTIC_UUID.toLowerCase())!;
+    const respCharacteristic = service.characteristics.get(DEFAULT_RESP_CHARACTERISTIC_UUID.toLowerCase())!;
+
+    const promise = client.setDeEmphasis(1);
+    setTimeout(() => respCharacteristic.dispatchResponse('OK De-emph BOTH 1'), 10);
+    await promise;
+
+    const written = cmdCharacteristic.getWrittenValues();
+    const lastCommand = new TextDecoder().decode(written[written.length - 1]);
+    expect(lastCommand).toBe('DEEMPH 1\n');
+  });
+
   it('sends per-channel volume commands', async () => {
     const device = createFakeWM8741Device();
     installFakeBluetooth({ nextDevice: device });
