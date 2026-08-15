@@ -129,6 +129,89 @@ describe('WM8741BLEClient', () => {
     await expect(client.setFilter(6 as 1)).rejects.toThrow(ProtocolError);
   });
 
+  it('sends a FORMAT command and validates its arguments', async () => {
+    const device = createFakeWM8741Device();
+    installFakeBluetooth({ nextDevice: device });
+
+    const client = new WM8741BLEClient();
+    await client.connect();
+
+    const service = device.gattServer.services.get(DEFAULT_SERVICE_UUID.toLowerCase())!;
+    const cmdCharacteristic = service.characteristics.get(DEFAULT_CMD_CHARACTERISTIC_UUID.toLowerCase())!;
+    const respCharacteristic = service.characteristics.get(DEFAULT_RESP_CHARACTERISTIC_UUID.toLowerCase())!;
+
+    const promise = client.setFormat(2, 2);
+    setTimeout(() => respCharacteristic.dispatchResponse('OK Format BOTH 2 2'), 10);
+    await promise;
+
+    const written = cmdCharacteristic.getWrittenValues();
+    const lastCommand = new TextDecoder().decode(written[written.length - 1]);
+    expect(lastCommand).toBe('FORMAT 2 2\n');
+
+    await expect(client.setFormat(4, 2)).rejects.toThrow(ProtocolError);
+    await expect(client.setFormat(2, 4)).rejects.toThrow(ProtocolError);
+  });
+
+  it('sends per-channel FORMAT commands', async () => {
+    const device = createFakeWM8741Device();
+    installFakeBluetooth({ nextDevice: device });
+
+    const client = new WM8741BLEClient();
+    await client.connect();
+
+    const service = device.gattServer.services.get(DEFAULT_SERVICE_UUID.toLowerCase())!;
+    const cmdCharacteristic = service.characteristics.get(DEFAULT_CMD_CHARACTERISTIC_UUID.toLowerCase())!;
+    const respCharacteristic = service.characteristics.get(DEFAULT_RESP_CHARACTERISTIC_UUID.toLowerCase())!;
+
+    const promise = client.setFormat(1, 3, 'left');
+    setTimeout(() => respCharacteristic.dispatchResponse('OK Format LEFT 1 3'), 10);
+    await promise;
+
+    const written = cmdCharacteristic.getWrittenValues();
+    const lastCommand = new TextDecoder().decode(written[written.length - 1]);
+    expect(lastCommand).toBe('FORMAT LEFT 1 3\n');
+  });
+
+  it('sends per-channel volume commands', async () => {
+    const device = createFakeWM8741Device();
+    installFakeBluetooth({ nextDevice: device });
+
+    const client = new WM8741BLEClient();
+    await client.connect();
+
+    const service = device.gattServer.services.get(DEFAULT_SERVICE_UUID.toLowerCase())!;
+    const cmdCharacteristic = service.characteristics.get(DEFAULT_CMD_CHARACTERISTIC_UUID.toLowerCase())!;
+    const respCharacteristic = service.characteristics.get(DEFAULT_RESP_CHARACTERISTIC_UUID.toLowerCase())!;
+
+    const leftPromise = client.setVolume(50, 'left');
+    setTimeout(() => respCharacteristic.dispatchResponse('OK Volume LEFT 50 steps (6.25dB)'), 10);
+    await leftPromise;
+
+    const written = cmdCharacteristic.getWrittenValues();
+    const lastCommand = new TextDecoder().decode(written[written.length - 1]);
+    expect(lastCommand).toBe('VOLUME LEFT 50\n');
+  });
+
+  it('sends channel-less command for "both" by default', async () => {
+    const device = createFakeWM8741Device();
+    installFakeBluetooth({ nextDevice: device });
+
+    const client = new WM8741BLEClient();
+    await client.connect();
+
+    const service = device.gattServer.services.get(DEFAULT_SERVICE_UUID.toLowerCase())!;
+    const cmdCharacteristic = service.characteristics.get(DEFAULT_CMD_CHARACTERISTIC_UUID.toLowerCase())!;
+    const respCharacteristic = service.characteristics.get(DEFAULT_RESP_CHARACTERISTIC_UUID.toLowerCase())!;
+
+    const promise = client.reset();
+    setTimeout(() => respCharacteristic.dispatchResponse('OK Reset BOTH'), 10);
+    await promise;
+
+    const written = cmdCharacteristic.getWrittenValues();
+    const lastCommand = new TextDecoder().decode(written[written.length - 1]);
+    expect(lastCommand).toBe('RESET\n');
+  });
+
   it('disconnects and cleans up', async () => {
     const device = createFakeWM8741Device();
     installFakeBluetooth({ nextDevice: device });

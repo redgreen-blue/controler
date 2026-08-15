@@ -51,6 +51,7 @@ enum {
 };
 
 static uint16_t heart_rate_handle_table[HRS_IDX_NB];
+static esp_gatt_if_t gatts_if_global = ESP_GATT_IF_NONE;
 
 static uint8_t adv_config_done = 0;
 #define ADV_CONFIG_FLAG             (1 << 0)
@@ -196,19 +197,28 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
 
 static void send_response_notification(uint16_t conn_id, uint16_t attr_handle, const char *response)
 {
+    if (gatts_if_global == ESP_GATT_IF_NONE) {
+        ESP_LOGE(TAG, "Cannot send response: gatts_if not initialized");
+        return;
+    }
+
     size_t len = strlen(response);
     if (len > RESP_MAX_LEN) {
         len = RESP_MAX_LEN;
     }
 
-    esp_ble_gatts_send_indicate(
-        heart_rate_handle_table[IDX_SVC],
+    esp_err_t ret = esp_ble_gatts_send_indicate(
+        gatts_if_global,
         conn_id,
         heart_rate_handle_table[IDX_CHAR_VAL_RESP],
         len,
         (uint8_t *)response,
         false /* notification */
     );
+
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "send response notification failed, error code = %x", ret);
+    }
 }
 
 static void gatts_profile_event_handler(esp_gatts_cb_event_t event,
@@ -218,6 +228,8 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event,
     switch (event) {
     case ESP_GATTS_REG_EVT: {
         ESP_LOGI(TAG, "REGISTER_APP_EVT, status %d, app_id %d", param->reg.status, param->reg.app_id);
+        gatts_if_global = gatts_if;
+
         esp_err_t set_dev_name_ret = esp_ble_gap_set_device_name(WM8741_DEVICE_NAME);
         if (set_dev_name_ret != ESP_OK) {
             ESP_LOGE(TAG, "set device name failed, error code = %x", set_dev_name_ret);

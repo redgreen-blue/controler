@@ -12,12 +12,13 @@ import {
   NotSupportedError,
   ConnectionError,
   ConnectionTimeoutError,
-  StateError
+  StateError,
+  ProtocolError
 } from './errors.js';
 import { ConnectionStateMachine } from './state-machine.js';
 import { DeviceManager } from './device-manager.js';
 import { GATTManager } from './gatt-manager.js';
-import { CommandProtocol } from './protocol.js';
+import { CommandProtocol, WM8741Channel } from './protocol.js';
 import {
   WM8741BLEClientOptions,
   ScanOptions,
@@ -266,35 +267,82 @@ export class WM8741BLEClient extends EventTarget {
 
   // ===== WM8741 high-level commands =====
 
-  async setVolume(steps: number): Promise<string> {
+  async setVolume(steps: number, channel: WM8741Channel = 'both'): Promise<string> {
     CommandProtocol.validateVolume(steps);
-    return this.sendCommand(`VOLUME ${steps}`);
+    return this.sendCommand(
+      CommandProtocol.buildChannelArgs('VOLUME', channel, String(steps))
+    );
   }
 
-  async setFilter(response: 1 | 2 | 3 | 4 | 5): Promise<string> {
+  async setFilter(response: 1 | 2 | 3 | 4 | 5, channel: WM8741Channel = 'both'): Promise<string> {
     CommandProtocol.validateFilter(response);
-    return this.sendCommand(`FILTER ${response}`);
+    return this.sendCommand(
+      CommandProtocol.buildChannelArgs('FILTER', channel, String(response))
+    );
   }
 
-  async setMute(enable: boolean): Promise<string> {
-    return this.sendCommand(`MUTE ${enable ? 1 : 0}`);
+  async setMute(enable: boolean, channel: WM8741Channel = 'both'): Promise<string> {
+    return this.sendCommand(
+      CommandProtocol.buildChannelArgs('MUTE', channel, enable ? '1' : '0')
+    );
   }
 
-  async setVolumeRamp(enable: boolean): Promise<string> {
-    return this.sendCommand(`SET_REG 04 ${enable ? '01' : '00'}`);
+  async setVolumeRamp(enable: boolean, channel: WM8741Channel = 'both'): Promise<string> {
+    return this.sendCommand(
+      CommandProtocol.buildChannelArgs('SET_REG', channel, `04 ${enable ? '01' : '00'}`)
+    );
   }
 
-  async setAntiClip(enable: boolean): Promise<string> {
-    return this.sendCommand(`ANTICLIP ${enable ? 1 : 0}`);
+  async setAntiClip(enable: boolean, channel: WM8741Channel = 'both'): Promise<string> {
+    return this.sendCommand(
+      CommandProtocol.buildChannelArgs('ANTICLIP', channel, enable ? '1' : '0')
+    );
   }
 
-  async reset(): Promise<string> {
-    return this.sendCommand('RESET');
+  async reset(channel: WM8741Channel = 'both'): Promise<string> {
+    return this.sendCommand(
+      CommandProtocol.buildChannelArgs('RESET', channel, '')
+    );
   }
 
-  async writeRegister(reg: number, value: number): Promise<string> {
+  async writeRegister(reg: number, value: number, channel: WM8741Channel = 'both'): Promise<string> {
     CommandProtocol.validateRegister(reg, value);
-    return this.sendCommand(`SET_REG ${reg.toString(16).padStart(2, '0')} ${value.toString(16).padStart(2, '0')}`);
+    const regHex = reg.toString(16).padStart(2, '0');
+    const valHex = value.toString(16).padStart(2, '0');
+    return this.sendCommand(
+      CommandProtocol.buildChannelArgs('SET_REG', channel, `${regHex} ${valHex}`)
+    );
+  }
+
+  async setAttenuation(atten: number, channel: WM8741Channel = 'both'): Promise<string> {
+    if (!Number.isInteger(atten) || atten < 0 || atten > 1023) {
+      throw new ProtocolError('Attenuation must be an integer between 0 and 1023');
+    }
+    return this.sendCommand(
+      CommandProtocol.buildChannelArgs('ATTEN', channel, String(atten))
+    );
+  }
+
+  async setDeEmphasis(mode: 0 | 1 | 2 | 3, channel: WM8741Channel = 'both'): Promise<string> {
+    if (!Number.isInteger(mode) || mode < 0 || mode > 3) {
+      throw new ProtocolError('De-emphasis mode must be 0, 1, 2, or 3');
+    }
+    return this.sendCommand(
+      CommandProtocol.buildChannelArgs('DEEMPH', channel, String(mode))
+    );
+  }
+
+  /**
+   * Set the input audio format of the WM8741.
+   *
+   * `format` values: 0 = Right Justified, 1 = Left Justified, 2 = I2S, 3 = DSP.
+   * `wordLength` values: 0 = 16-bit, 1 = 20-bit, 2 = 24-bit, 3 = 32-bit.
+   */
+  async setFormat(format: number, wordLength: number, channel: WM8741Channel = 'both'): Promise<string> {
+    CommandProtocol.validateFormat(format, wordLength);
+    return this.sendCommand(
+      CommandProtocol.buildChannelArgs('FORMAT', channel, `${format} ${wordLength}`)
+    );
   }
 
   // ===== Event helpers =====

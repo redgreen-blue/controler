@@ -8,8 +8,12 @@
 extern "C" {
 #endif
 
-/* ==================== WM8741 寄存器定义 ==================== */
-#define WM8741_I2C_ADDR             0x1A
+/* ==================== WM8741 I2C 地址 ==================== */
+#define WM8741_I2C_ADDR_LEFT        0x1A    /* CSB = GND */
+#define WM8741_I2C_ADDR_RIGHT       0x1B    /* CSB = VDD */
+
+/* 兼容性别名：旧地址保留 */
+#define WM8741_I2C_ADDR             WM8741_I2C_ADDR_LEFT
 
 #define WM8741_REG_DACL_LSB         0x00
 #define WM8741_REG_DACL_MSB         0x01
@@ -30,9 +34,15 @@ extern "C" {
 #define ATTEN_UPDATE        (1<<5)
 
 #define FMT_IWL_SHIFT       0
+#define FMT_IWL_16          0
+#define FMT_IWL_20          1
 #define FMT_IWL_24          2
+#define FMT_IWL_32          3
 #define FMT_FMT_SHIFT       2
+#define FMT_RJ              0
+#define FMT_LJ              1
 #define FMT_I2S             2
+#define FMT_DSP             3
 #define FMT_LRP             (1<<4)
 #define FMT_BCP             (1<<5)
 #define FMT_REV             (1<<6)
@@ -50,18 +60,33 @@ extern "C" {
 #define MODE2_DIFF_SHIFT    2
 
 /**
+ * @brief Channel target for dual-WM8741 configurations.
+ *
+ * Left and right DAC chips share the same I2C bus but have different
+ * addresses (CSB pin strapping).
+ */
+typedef enum {
+    WM8741_CH_LEFT = 0,
+    WM8741_CH_RIGHT,
+    WM8741_CH_BOTH
+} wm8741_channel_t;
+
+/**
  * @brief Parse and execute a WM8741 control command.
  *
  * Supported commands:
- *   RESET
- *   MUTE 0/1
- *   VOLUME 0-127
- *   ATTEN 0-1023
- *   FILTER 1-5
- *   DEEMPH 0-3
- *   ANTICLIP 0/1
- *   SET_REG <hex_reg> <hex_val>
- *   GET_IP
+ *   RESET [L/R/BOTH]
+ *   MUTE [L/R/BOTH] 0/1
+ *   VOLUME [L/R/BOTH] 0-127
+ *   ATTEN [L/R/BOTH] 0-1023
+ *   FILTER [L/R/BOTH] 1-5
+ *   FORMAT [L/R/BOTH] <fmt 0=RJ 1=LJ 2=I2S 3=DSP> <iwl 0=16 1=20 2=24 3=32>
+ *   DEEMPH [L/R/BOTH] 0-3
+ *   ANTICLIP [L/R/BOTH] 0/1
+ *   SET_REG [L/R/BOTH] <hex_reg> <hex_val>
+ *
+ * When the channel argument is omitted, BOTH is assumed for backwards
+ * compatibility.
  *
  * @param cmd             Null-terminated command string.
  * @param response        Buffer to write the text response.

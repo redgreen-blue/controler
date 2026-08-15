@@ -1,6 +1,15 @@
 import { ProtocolError } from './errors.js';
 
 /**
+ * Channel target for dual-WM8741 configurations.
+ *
+ * - `both`: apply to both left and right WM8741 chips (default).
+ * - `left`: apply only to the left channel chip (CSB = GND, 0x1A).
+ * - `right`: apply only to the right channel chip (CSB = VDD, 0x1B).
+ */
+export type WM8741Channel = 'both' | 'left' | 'right';
+
+/**
  * Command/response protocol helpers.
  *
  * The WM8741 firmware expects newline-terminated text commands such as
@@ -61,12 +70,15 @@ export class CommandProtocol {
   }
 
   /**
-   * Parse a register-write response such as `OK Reg 0x04=0x01`.
+   * Parse a register-write response such as `OK Reg BOTH 0x04=0x01`.
+   *
+   * The optional channel prefix (LEFT/RIGHT/BOTH) is accepted so responses
+   * from dual-WM8741 configurations are parsed correctly.
    *
    * @returns The parsed register and value, or null if not matched.
    */
   static parseRegisterResponse(response: string): { reg: number; value: number } | null {
-    const match = /OK Reg 0x([0-9a-fA-F]+)=0x([0-9a-fA-F]+)/.exec(response);
+    const match = /OK Reg (?:LEFT |RIGHT |BOTH )?0x([0-9a-fA-F]+)=0x([0-9a-fA-F]+)/.exec(response);
     if (!match) {
       return null;
     }
@@ -110,5 +122,50 @@ export class CommandProtocol {
     if (!Number.isInteger(value) || value < 0 || value > 0xFF) {
       throw new ProtocolError('Register value must be between 0 and 0xFF');
     }
+  }
+
+  /**
+   * Validate an input audio format and word length for the WM8741.
+   *
+   * `format` values: 0 = Right Justified, 1 = Left Justified, 2 = I2S, 3 = DSP.
+   * `wordLength` values: 0 = 16-bit, 1 = 20-bit, 2 = 24-bit, 3 = 32-bit.
+   *
+   * @throws {ProtocolError} if out of range.
+   */
+  static validateFormat(format: number, wordLength: number): void {
+    if (!Number.isInteger(format) || format < 0 || format > 3) {
+      throw new ProtocolError('Input format must be 0 (RJ), 1 (LJ), 2 (I2S), or 3 (DSP)');
+    }
+    if (!Number.isInteger(wordLength) || wordLength < 0 || wordLength > 3) {
+      throw new ProtocolError('Word length must be 0 (16), 1 (20), 2 (24), or 3 (32 bit)');
+    }
+  }
+
+  /**
+   * Validate a channel target for dual-WM8741 configurations.
+   *
+   * @throws {ProtocolError} if invalid.
+   */
+  static validateChannel(channel: string): asserts channel is WM8741Channel {
+    if (!['both', 'left', 'right'].includes(channel)) {
+      throw new ProtocolError('Channel must be both, left, or right');
+    }
+  }
+
+  /**
+   * Format a command argument that optionally includes a channel specifier.
+   *
+   * @example
+   *   buildChannelArgs('RESET', 'both', '')     -> 'RESET'
+   *   buildChannelArgs('RESET', 'left', '')     -> 'RESET LEFT'
+   *   buildChannelArgs('VOLUME', 'left', '50')  -> 'VOLUME LEFT 50'
+   *   buildChannelArgs('VOLUME', 'both', '50')  -> 'VOLUME 50'
+   *   buildChannelArgs('SET_REG', 'left', '04 01') -> 'SET_REG LEFT 04 01'
+   */
+  static buildChannelArgs(command: string, channel: WM8741Channel, value: string): string {
+    CommandProtocol.validateChannel(channel);
+    const channelPart = channel === 'both' ? '' : ` ${channel.toUpperCase()}`;
+    const valuePart = value ? ` ${value}` : '';
+    return `${command}${channelPart}${valuePart}`;
   }
 }

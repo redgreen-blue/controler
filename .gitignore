@@ -41,6 +41,10 @@ managed_components/
 # If ESP-IDF tools are installed/referenced locally to the project
 .espressif/
 
+# Generated web assets embedded into firmware (via web/scripts/embed-*.js)
+main/index_html.h
+main/wm8741_ble_js.h
+
 # CMake generated files
 CMakeCache.txt
 CMakeFiles/

@@ -52,9 +52,19 @@ describe('CommandProtocol', () => {
   });
 
   describe('parseRegisterResponse', () => {
-    it('parses a valid register response', () => {
+    it('parses a register response without channel', () => {
       const result = CommandProtocol.parseRegisterResponse('OK Reg 0x04=0x01');
       expect(result).toEqual({ reg: 0x04, value: 0x01 });
+    });
+
+    it('parses a register response with channel prefix', () => {
+      const result = CommandProtocol.parseRegisterResponse('OK Reg BOTH 0x04=0x01');
+      expect(result).toEqual({ reg: 0x04, value: 0x01 });
+    });
+
+    it('parses a per-channel register response', () => {
+      const result = CommandProtocol.parseRegisterResponse('OK Reg LEFT 0x20=0xFF');
+      expect(result).toEqual({ reg: 0x20, value: 0xff });
     });
 
     it('returns null for non-matching responses', () => {
@@ -80,6 +90,42 @@ describe('CommandProtocol', () => {
       expect(() => CommandProtocol.validateRegister(0x04, 0xff)).not.toThrow();
       expect(() => CommandProtocol.validateRegister(0x80, 0x00)).toThrow(ProtocolError);
       expect(() => CommandProtocol.validateRegister(0x00, 0x100)).toThrow(ProtocolError);
+    });
+
+    it('validates input format and word length', () => {
+      expect(() => CommandProtocol.validateFormat(2, 2)).not.toThrow();
+      expect(() => CommandProtocol.validateFormat(0, 3)).not.toThrow();
+      expect(() => CommandProtocol.validateFormat(4, 2)).toThrow(ProtocolError);
+      expect(() => CommandProtocol.validateFormat(-1, 2)).toThrow(ProtocolError);
+      expect(() => CommandProtocol.validateFormat(2, 4)).toThrow(ProtocolError);
+      expect(() => CommandProtocol.validateFormat(2, 1.5)).toThrow(ProtocolError);
+    });
+
+    it('validates channel target', () => {
+      expect(() => CommandProtocol.validateChannel('both')).not.toThrow();
+      expect(() => CommandProtocol.validateChannel('left')).not.toThrow();
+      expect(() => CommandProtocol.validateChannel('right')).not.toThrow();
+      expect(() => CommandProtocol.validateChannel('center')).toThrow(ProtocolError);
+    });
+  });
+
+  describe('buildChannelArgs', () => {
+    it('omits channel for "both"', () => {
+      expect(CommandProtocol.buildChannelArgs('VOLUME', 'both', '50')).toBe('VOLUME 50');
+    });
+
+    it('includes channel for "left" and "right"', () => {
+      expect(CommandProtocol.buildChannelArgs('VOLUME', 'left', '50')).toBe('VOLUME LEFT 50');
+      expect(CommandProtocol.buildChannelArgs('VOLUME', 'right', '50')).toBe('VOLUME RIGHT 50');
+    });
+
+    it('omits value when empty', () => {
+      expect(CommandProtocol.buildChannelArgs('RESET', 'both', '')).toBe('RESET');
+      expect(CommandProtocol.buildChannelArgs('RESET', 'left', '')).toBe('RESET LEFT');
+    });
+
+    it('supports multi-word values', () => {
+      expect(CommandProtocol.buildChannelArgs('SET_REG', 'left', '04 01')).toBe('SET_REG LEFT 04 01');
     });
   });
 });

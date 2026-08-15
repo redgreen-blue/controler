@@ -69,6 +69,27 @@
     </div>
 
     <div class="card">
+        <h2>输入音频格式</h2>
+        <div class="row">
+            <span class="label">格式</span>
+            <select id="fmtSelect" disabled>
+                <option value="2" selected>I2S</option>
+                <option value="0">右对齐 RJ</option>
+                <option value="1">左对齐 LJ</option>
+                <option value="3">DSP</option>
+            </select>
+            <span class="label">字长</span>
+            <select id="iwlSelect" disabled>
+                <option value="2" selected>24-bit</option>
+                <option value="0">16-bit</option>
+                <option value="1">20-bit</option>
+                <option value="3">32-bit</option>
+            </select>
+            <button id="applyFmt" disabled>应用</button>
+        </div>
+    </div>
+
+    <div class="card">
         <h2>开关选项</h2>
         <div class="checkbox-group">
             <label><input type="checkbox" id="muteChk" disabled> 静音</label>
@@ -106,6 +127,9 @@
         const volDisplay = document.getElementById('volDisplay');
         const applyVol = document.getElementById('applyVol');
         const filterRadios = document.querySelectorAll('input[name="filter"]');
+        const fmtSelect = document.getElementById('fmtSelect');
+        const iwlSelect = document.getElementById('iwlSelect');
+        const applyFmt = document.getElementById('applyFmt');
         const muteChk = document.getElementById('muteChk');
         const rampChk = document.getElementById('rampChk');
         const anticlipChk = document.getElementById('anticlipChk');
@@ -116,7 +140,7 @@
         const writeReg = document.getElementById('writeReg');
         const contextBanner = document.getElementById('contextBanner');
 
-        const controls = [volSlider, applyVol, ...filterRadios, muteChk, rampChk, anticlipChk, applyOpts, resetBtn, regAddr, regVal, writeReg];
+        const controls = [volSlider, applyVol, ...filterRadios, fmtSelect, iwlSelect, applyFmt, muteChk, rampChk, anticlipChk, applyOpts, resetBtn, regAddr, regVal, writeReg];
 
         function setControlsEnabled(enabled) {
             controls.forEach(el => el.disabled = !enabled);
@@ -229,6 +253,15 @@
                     log('错误: ' + err.message);
                 }
             });
+        });
+
+        applyFmt.addEventListener('click', async () => {
+            try {
+                const response = await client.setFormat(Number(fmtSelect.value), Number(iwlSelect.value));
+                log('> FORMAT ' + fmtSelect.value + ' ' + iwlSelect.value + ' => ' + response);
+            } catch (err) {
+                log('错误: ' + err.message);
+            }
         });
 
         applyOpts.addEventListener('click', async () => {
