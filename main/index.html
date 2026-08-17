@@ -135,6 +135,14 @@
     <div class="card">
         <h2>寄存器直接写入</h2>
         <div class="row">
+            <span class="label">目标芯片</span>
+            <div class="radio-group" id="regChannelGroup">
+                <label><input type="radio" name="regChannel" value="both" checked disabled> 双 (BOTH)</label>
+                <label><input type="radio" name="regChannel" value="left" disabled> 左 (L)</label>
+                <label><input type="radio" name="regChannel" value="right" disabled> 右 (R)</label>
+            </div>
+        </div>
+        <div class="row">
             <span class="label">Reg (hex):</span>
             <input type="text" id="regAddr" placeholder="04" style="width:60px;" disabled>
             <span class="label">Val (hex):</span>
@@ -175,8 +183,9 @@
         const regAddr = document.getElementById('regAddr');
         const regVal = document.getElementById('regVal');
         const writeReg = document.getElementById('writeReg');
+        const regChannelRadios = document.querySelectorAll('input[name="regChannel"]');
 
-        const controls = [volSlider, applyVol, ...filterRadios, fmtSelect, iwlSelect, applyFmt, ...mclkRadios, applyMclk, srateSelect, applySrate, ...deemphRadios, muteChk, rampChk, anticlipChk, applyOpts, resetBtn, regAddr, regVal, writeReg];
+        const controls = [volSlider, applyVol, ...filterRadios, fmtSelect, iwlSelect, applyFmt, ...mclkRadios, applyMclk, srateSelect, applySrate, ...deemphRadios, muteChk, rampChk, anticlipChk, applyOpts, resetBtn, regAddr, regVal, writeReg, ...regChannelRadios];
 
         function setControlsEnabled(enabled) {
             controls.forEach(el => el.disabled = !enabled);
@@ -325,9 +334,10 @@
                 log('请输入有效的十六进制寄存器地址和值');
                 return;
             }
+            const channel = document.querySelector('input[name="regChannel"]:checked').value;
             try {
-                const response = await client.writeRegister(reg, val);
-                log('> SET_REG => ' + response);
+                const response = await client.writeRegister(reg, val, channel);
+                log('> SET_REG ' + channel.toUpperCase() + ' => ' + response);
             } catch (err) {
                 log('错误: ' + err.message);
             }

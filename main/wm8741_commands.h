@@ -2,7 +2,10 @@
 #define WM8741_COMMANDS_H
 
 #include <stddef.h>
+#include <stdint.h>
+#include <stdbool.h>
 #include "esp_err.h"
+#include "driver/i2c_master.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -59,6 +62,12 @@ extern "C" {
 #define MODE2_DITHER_MASK   0x03
 #define MODE2_DIFF_SHIFT    2
 
+/* 双单声道（dual mono / bridged）软件配置，写 MODE_CTRL2 (R8)：
+ * 默认值 0x02 = 立体声；0x06 = 左声道 mono（DIFF=1）；0x0E = 右声道 mono（DIFF=1, LRSEL=1）
+ * 配合硬件：DIFFHW(6脚)=GND，VOUTLP(17)+VOUTRN(13)、VOUTRP(12)+VOUTLN(16) 桥接成差分输出 */
+#define MODE2_MONO_LEFT     0x06
+#define MODE2_MONO_RIGHT    0x0E
+
 /**
  * @brief Channel target for dual-WM8741 configurations.
  *
@@ -70,6 +79,37 @@ typedef enum {
     WM8741_CH_RIGHT,
     WM8741_CH_BOTH
 } wm8741_channel_t;
+
+/* ==================== 跨模块共享的底层接口 ==================== */
+/* 以下符号定义于 i2c_basic_example_main.c，供 wm8741_commands.c 调用。 */
+
+/* 影子寄存器：维护 WM8741 各寄存器的最新写入值 */
+extern uint8_t wm8741_regs[0x80];
+
+/* 左右声道的 I2C 设备句柄 */
+extern i2c_master_dev_handle_t dev_handle_left;
+extern i2c_master_dev_handle_t dev_handle_right;
+
+/* 向指定设备写入一个寄存器 */
+esp_err_t wm8741_write_reg(i2c_master_dev_handle_t dev, uint8_t reg, uint8_t data);
+
+/* 安全修改寄存器特定位（单通道 / 双通道） */
+esp_err_t wm8741_update_reg_bit_ch(wm8741_channel_t ch, uint8_t reg, uint8_t bit_mask, uint8_t bit_value);
+esp_err_t wm8741_update_reg_bit(uint8_t reg, uint8_t bit_mask, uint8_t bit_value);
+
+/* 设置 DAC 衰减（单通道 / 双通道） */
+esp_err_t wm8741_set_attenuation_ch(wm8741_channel_t ch, uint16_t att_value);
+void wm8741_set_attenuation(uint16_t att_value);
+
+/* 切换 MCLK 晶体（true = 22 MHz，false = 24 MHz） */
+esp_err_t wm8741_set_mclk_freq(bool use_22mhz);
+
+/* 全芯片静音 / 解除静音 */
+esp_err_t wm8741_mute_all(void);
+esp_err_t wm8741_unmute_all(void);
+
+/* 单芯片完整初始化（软复位后恢复 mono 差分模式、格式、滤波器等） */
+esp_err_t wm8741_init_chip(i2c_master_dev_handle_t dev, const char *label);
 
 /**
  * @brief Parse and execute a WM8741 control command.

@@ -18,26 +18,6 @@
 #include "wm8741_commands.h"
 #include "driver/i2c_master.h"
 
-/* Externs from i2c_basic_example_main.c */
-extern uint8_t wm8741_regs[0x80];
-extern i2c_master_dev_handle_t dev_handle_left;
-extern i2c_master_dev_handle_t dev_handle_right;
-
-extern esp_err_t wm8741_write_reg(i2c_master_dev_handle_t dev, uint8_t reg, uint8_t data);
-extern esp_err_t wm8741_update_reg_bit(uint8_t reg, uint8_t bit_mask, uint8_t bit_value);
-extern void wm8741_set_attenuation(uint16_t att_value);
-
-/* Helpers for per-channel register access. Defined in i2c_basic_example_main.c */
-extern esp_err_t wm8741_update_reg_bit_ch(wm8741_channel_t ch, uint8_t reg, uint8_t bit_mask, uint8_t bit_value);
-extern esp_err_t wm8741_set_attenuation_ch(wm8741_channel_t ch, uint16_t att_value);
-
-/* MCLK source crystal selection. Defined in i2c_basic_example_main.c */
-extern esp_err_t wm8741_set_mclk_freq(bool use_22mhz);
-
-/* System-wide mute protection. Defined in i2c_basic_example_main.c */
-extern esp_err_t wm8741_mute_all(void);
-extern esp_err_t wm8741_unmute_all(void);
-
 /* ==================== 静音保护辅助 ==================== */
 
 /**
@@ -131,13 +111,16 @@ static esp_err_t cmd_reset(wm8741_channel_t ch, const char *args, char *response
     (void)args;
     esp_err_t ret;
 
+    /* 软复位会清除全部寄存器（R8 回到立体声默认值），因此复位后必须重新
+     * 执行完整初始化，恢复 mono 差分模式、格式、滤波器等配置，否则桥接
+     * 输出级会再次互相灌电流导致发热 */
     if (ch == WM8741_CH_BOTH) {
-        ret = wm8741_write_reg(dev_handle_left, WM8741_REG_SOFT_RESET, 0x00);
+        ret = wm8741_init_chip(dev_handle_left, "WM8741 Left");
         if (ret != ESP_OK) goto fail;
-        ret = wm8741_write_reg(dev_handle_right, WM8741_REG_SOFT_RESET, 0x00);
+        ret = wm8741_init_chip(dev_handle_right, "WM8741 Right");
         if (ret != ESP_OK) goto fail;
     } else {
-        ret = wm8741_write_reg(dev_for_channel(ch), WM8741_REG_SOFT_RESET, 0x00);
+        ret = wm8741_init_chip(dev_for_channel(ch), channel_name(ch));
         if (ret != ESP_OK) goto fail;
     }
 

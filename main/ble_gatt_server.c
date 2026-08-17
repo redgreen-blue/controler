@@ -50,7 +50,7 @@ enum {
     HRS_IDX_NB,
 };
 
-static uint16_t heart_rate_handle_table[HRS_IDX_NB];
+static uint16_t wm8741_handle_table[HRS_IDX_NB];
 static esp_gatt_if_t gatts_if_global = ESP_GATT_IF_NONE;
 
 static uint8_t adv_config_done = 0;
@@ -210,7 +210,7 @@ static void send_response_notification(uint16_t conn_id, uint16_t attr_handle, c
     esp_err_t ret = esp_ble_gatts_send_indicate(
         gatts_if_global,
         conn_id,
-        heart_rate_handle_table[IDX_CHAR_VAL_RESP],
+        wm8741_handle_table[IDX_CHAR_VAL_RESP],
         len,
         (uint8_t *)response,
         false /* notification */
@@ -271,14 +271,14 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event,
                      param->add_attr_tab.num_handle, HRS_IDX_NB);
             abort();
         } else {
-            memcpy(heart_rate_handle_table, param->add_attr_tab.handles, sizeof(heart_rate_handle_table));
-            esp_err_t ret = esp_ble_gatts_start_service(heart_rate_handle_table[IDX_SVC]);
+            memcpy(wm8741_handle_table, param->add_attr_tab.handles, sizeof(wm8741_handle_table));
+            esp_err_t ret = esp_ble_gatts_start_service(wm8741_handle_table[IDX_SVC]);
             if (ret != ESP_OK) {
                 ESP_LOGE(TAG, "Start service failed, error code=0x%x", ret);
                 abort();
             }
             ESP_LOGI(TAG, "GATT service started successfully, handle=0x%04x",
-                     heart_rate_handle_table[IDX_SVC]);
+                     wm8741_handle_table[IDX_SVC]);
         }
         break;
     }
@@ -286,7 +286,7 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event,
     case ESP_GATTS_WRITE_EVT: {
         if (!param->write.is_prep) {
             uint16_t handle = param->write.handle;
-            if (handle == heart_rate_handle_table[IDX_CHAR_VAL_CMD]) {
+            if (handle == wm8741_handle_table[IDX_CHAR_VAL_CMD]) {
                 uint16_t len = param->write.len;
                 if (len >= CMD_MAX_LEN) {
                     len = CMD_MAX_LEN - 1;

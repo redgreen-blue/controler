@@ -51,7 +51,7 @@ i2c_master_dev_handle_t dev_handle;
 /* ==================== I2C 写函数 ==================== */
 esp_err_t wm8741_write_reg(i2c_master_dev_handle_t dev, uint8_t reg, uint8_t data)
 {
-    uint8_t write_buf[2] = { (reg << 1) | 0x00, data };
+    uint8_t write_buf[2] = { reg, data };
     esp_err_t ret = i2c_master_transmit(dev, write_buf, sizeof(write_buf), I2C_MASTER_TIMEOUT_MS);
     if (ret == ESP_OK) {
         wm8741_regs[reg] = data;
@@ -119,7 +119,7 @@ void wm8741_set_attenuation(uint16_t att_value)
 }
 
 /* ==================== 单芯片初始化 ==================== */
-static esp_err_t wm8741_init_chip(i2c_master_dev_handle_t dev, const char *label)
+esp_err_t wm8741_init_chip(i2c_master_dev_handle_t dev, const char *label)
 {
     ESP_LOGI(TAG, "Configuring %s...", label);
 
@@ -136,7 +136,11 @@ static esp_err_t wm8741_init_chip(i2c_master_dev_handle_t dev, const char *label
     ret = wm8741_write_reg(dev, WM8741_REG_FORMAT_CTRL, format);
     if (ret != ESP_OK) return ret;
 
-    uint8_t mode2 = (2 << 0);
+    /* 双单声道设计：左芯片(0x1A)解码左声道，右芯片(0x1B)解码右声道。
+     * 硬件上 DIFFHW(6脚)接地，VOUTLP(17)+VOUTRN(13)、VOUTRP(12)+VOUTLN(16)
+     * 桥接成差分输出，需通过 R8 软件开启 mono 差分模式，否则左右 DAC
+     * 输出级互相灌电流导致芯片异常发热 */
+    uint8_t mode2 = (dev == dev_handle_left) ? MODE2_MONO_LEFT : MODE2_MONO_RIGHT;
     ret = wm8741_write_reg(dev, WM8741_REG_MODE_CTRL2, mode2);
     if (ret != ESP_OK) return ret;
 
