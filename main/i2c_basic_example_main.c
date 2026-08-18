@@ -36,7 +36,8 @@
 #define MCLK_SEL_DEFAULT            CONFIG_MCLK_SEL_DEFAULT  /* 1=22MHz 0=24MHz */
 
 /* ==================== 影子寄存器 ==================== */
-uint8_t wm8741_regs[0x80];
+/* [0] = 左声道芯片 (0x1A), [1] = 右声道芯片 (0x1B) */
+uint8_t wm8741_regs[2][0x80];
 
 /* ==================== 全局变量 ==================== */
 static const char *TAG = "wm8741";
@@ -48,13 +49,26 @@ i2c_master_dev_handle_t dev_handle_right;
 /* 兼容旧代码：dev_handle 指向左声道芯片 */
 i2c_master_dev_handle_t dev_handle;
 
+/* ==================== 设备句柄 → 通道索引 ==================== */
+static int wm8741_dev_to_idx(i2c_master_dev_handle_t dev)
+{
+    return (dev == dev_handle_right) ? 1 : 0;
+}
+
 /* ==================== I2C 写函数 ==================== */
 esp_err_t wm8741_write_reg(i2c_master_dev_handle_t dev, uint8_t reg, uint8_t data)
 {
     uint8_t write_buf[2] = { reg, data };
     esp_err_t ret = i2c_master_transmit(dev, write_buf, sizeof(write_buf), I2C_MASTER_TIMEOUT_MS);
     if (ret == ESP_OK) {
-        wm8741_regs[reg] = data;
+        int idx = wm8741_dev_to_idx(dev);
+        wm8741_regs[idx][reg] = data;
+        /* R9 为软件复位寄存器，写入任意值都会将芯片内所有寄存器
+         * 复位到默认值。影子寄存器须同步清零，否则后续 RMW 操作
+         * 会基于过时的影子值构造错误的寄存器值 */
+        if (reg == WM8741_REG_SOFT_RESET) {
+            memset(wm8741_regs[idx], 0, sizeof(wm8741_regs[idx]));
+        }
     }
     return ret;
 }
@@ -72,7 +86,8 @@ static i2c_master_dev_handle_t wm8741_dev_for_channel(wm8741_channel_t ch)
 esp_err_t wm8741_update_reg_bit_ch(wm8741_channel_t ch, uint8_t reg, uint8_t bit_mask, uint8_t bit_value)
 {
     i2c_master_dev_handle_t dev = wm8741_dev_for_channel(ch);
-    uint8_t current = wm8741_regs[reg];
+    int idx = (ch == WM8741_CH_RIGHT) ? 1 : 0;
+    uint8_t current = wm8741_regs[idx][reg];
     if (bit_value) current |= bit_mask;
     else current &= ~bit_mask;
     return wm8741_write_reg(dev, reg, current);
@@ -171,20 +186,7 @@ static void wm8741_init(void)
     }
 }
 
-/* ==================== MCLK 频率选择 ==================== */
-
-/**
- * @brief Switch the MCLK source crystal.
- *
- * @param use_22mhz  true  -> GPIO high (22 MHz crystal)
- *                   false -> GPIO low  (24 MHz crystal)
- */
-esp_err_t wm8741_set_mclk_freq(bool use_22mhz)
-{
-    gpio_set_level(MCLK_SEL_GPIO, use_22mhz ? 1 : 0);
-    return ESP_OK;
-}
-
+/* ==================== MCLK 初始化 ==================== */
 static void mclk_sel_init(void)
 {
     gpio_config_t io = {
@@ -198,6 +200,40 @@ static void mclk_sel_init(void)
     gpio_set_level(MCLK_SEL_GPIO, MCLK_SEL_DEFAULT);
     ESP_LOGI(TAG, "MCLK select: GPIO %d, default %d MHz",
              MCLK_SEL_GPIO, MCLK_SEL_DEFAULT ? 22 : 24);
+}
+
+/* ==================== 寄存器状态导出 ==================== */
+
+/**
+ * @brief Append a compact register-state dump to an existing response string.
+ *
+ * Shows the 11 control registers (0x00-0x09, 0x20) for both channels.
+ * Output format:
+ *   L:XX=YY XX=YY ...
+ *   R:XX=YY XX=YY ...
+ */
+void wm8741_append_regs_state(char *buf, size_t buf_size)
+{
+    size_t pos = strlen(buf);
+    static const uint8_t regs[] = {
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x20
+    };
+    const int num_regs = sizeof(regs) / sizeof(regs[0]);
+    static const char labels[] = { 'L', 'R' };
+
+    for (int ch = 0; ch < 2; ch++) {
+        int n = snprintf(buf + pos, (pos < buf_size) ? (buf_size - pos) : 0,
+                        "\n%c:", labels[ch]);
+        if (n > 0) pos += n;
+        if (pos >= buf_size) return;
+
+        for (int i = 0; i < num_regs; i++) {
+            n = snprintf(buf + pos, (pos < buf_size) ? (buf_size - pos) : 0,
+                        " %02X=%02X", regs[i], wm8741_regs[ch][regs[i]]);
+            if (n > 0) pos += n;
+            if (pos >= buf_size) return;
+        }
+    }
 }
 
 /* ==================== 静音保护 ==================== */

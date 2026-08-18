@@ -12,8 +12,7 @@ import {
   NotSupportedError,
   ConnectionError,
   ConnectionTimeoutError,
-  StateError,
-  ProtocolError
+  StateError
 } from './errors.js';
 import { ConnectionStateMachine } from './state-machine.js';
 import { DeviceManager } from './device-manager.js';
@@ -265,46 +264,18 @@ export class WM8741BLEClient extends EventTarget {
     });
   }
 
-  // ===== WM8741 high-level commands =====
+  // ===== WM8741 register-level command =====
 
-  async setVolume(steps: number, channel: WM8741Channel = 'both'): Promise<string> {
-    CommandProtocol.validateVolume(steps);
-    return this.sendCommand(
-      CommandProtocol.buildChannelArgs('VOLUME', channel, String(steps))
-    );
-  }
-
-  async setFilter(response: 1 | 2 | 3 | 4 | 5, channel: WM8741Channel = 'both'): Promise<string> {
-    CommandProtocol.validateFilter(response);
-    return this.sendCommand(
-      CommandProtocol.buildChannelArgs('FILTER', channel, String(response))
-    );
-  }
-
-  async setMute(enable: boolean, channel: WM8741Channel = 'both'): Promise<string> {
-    return this.sendCommand(
-      CommandProtocol.buildChannelArgs('MUTE', channel, enable ? '1' : '0')
-    );
-  }
-
-  async setVolumeRamp(enable: boolean, channel: WM8741Channel = 'both'): Promise<string> {
-    return this.sendCommand(
-      CommandProtocol.buildChannelArgs('SET_REG', channel, `04 ${enable ? '01' : '00'}`)
-    );
-  }
-
-  async setAntiClip(enable: boolean, channel: WM8741Channel = 'both'): Promise<string> {
-    return this.sendCommand(
-      CommandProtocol.buildChannelArgs('ANTICLIP', channel, enable ? '1' : '0')
-    );
-  }
-
-  async reset(channel: WM8741Channel = 'both'): Promise<string> {
-    return this.sendCommand(
-      CommandProtocol.buildChannelArgs('RESET', channel, '')
-    );
-  }
-
+  /**
+   * Write a full 8-bit value to a WM8741 register.
+   *
+   * Sends a SET_REG command to the firmware, which writes the value
+   * directly to the target register(s) on the specified chip channel.
+   *
+   * @param reg     Register address (0x00–0x7F).
+   * @param value   8-bit register value (0x00–0xFF).
+   * @param channel Target chip: 'both', 'left', or 'right'.
+   */
   async writeRegister(reg: number, value: number, channel: WM8741Channel = 'both'): Promise<string> {
     CommandProtocol.validateRegister(reg, value);
     const regHex = reg.toString(16).padStart(2, '0');
@@ -312,61 +283,6 @@ export class WM8741BLEClient extends EventTarget {
     return this.sendCommand(
       CommandProtocol.buildChannelArgs('SET_REG', channel, `${regHex} ${valHex}`)
     );
-  }
-
-  async setAttenuation(atten: number, channel: WM8741Channel = 'both'): Promise<string> {
-    if (!Number.isInteger(atten) || atten < 0 || atten > 1023) {
-      throw new ProtocolError('Attenuation must be an integer between 0 and 1023');
-    }
-    return this.sendCommand(
-      CommandProtocol.buildChannelArgs('ATTEN', channel, String(atten))
-    );
-  }
-
-  async setDeEmphasis(mode: 0 | 1 | 2 | 3, channel: WM8741Channel = 'both'): Promise<string> {
-    if (!Number.isInteger(mode) || mode < 0 || mode > 3) {
-      throw new ProtocolError('De-emphasis mode must be 0, 1, 2, or 3');
-    }
-    return this.sendCommand(
-      CommandProtocol.buildChannelArgs('DEEMPH', channel, String(mode))
-    );
-  }
-
-  /**
-   * Set the input audio format of the WM8741.
-   *
-   * `format` values: 0 = Right Justified, 1 = Left Justified, 2 = I2S, 3 = DSP.
-   * `wordLength` values: 0 = 16-bit, 1 = 20-bit, 2 = 24-bit, 3 = 32-bit.
-   */
-  async setFormat(format: number, wordLength: number, channel: WM8741Channel = 'both'): Promise<string> {
-    CommandProtocol.validateFormat(format, wordLength);
-    return this.sendCommand(
-      CommandProtocol.buildChannelArgs('FORMAT', channel, `${format} ${wordLength}`)
-    );
-  }
-
-  /**
-   * Switch the MCLK source crystal. System-wide, shared by both channels.
-   *
-   * @param freq 22 for the 22 MHz crystal, 24 for the 24 MHz crystal.
-   */
-  async setMclkFrequency(freq: 22 | 24): Promise<string> {
-    CommandProtocol.validateMclkFrequency(freq);
-    return this.sendCommand(`MCLK ${freq}`);
-  }
-
-  /**
-   * Set the input sample rate of the WM8741.
-   *
-   * The firmware coordinates the switch with the MCLK crystal
-   * (44.1 kHz family -> 22 MHz, 48 kHz family -> 24 MHz) and applies
-   * mute protection during the transition.
-   *
-   * @param rate Sample rate in kHz (32, 44.1, 48, 88.2, 96, 176.4, 192).
-   */
-  async setSampleRate(rate: number): Promise<string> {
-    CommandProtocol.validateSampleRate(rate);
-    return this.sendCommand(`SRATE ${rate}`);
   }
 
   // ===== Event helpers =====

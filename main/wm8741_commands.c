@@ -12,7 +12,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
-#include <math.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "wm8741_commands.h"
@@ -26,7 +25,7 @@
  */
 static esp_err_t mute_begin(bool *was_muted)
 {
-    *was_muted = (wm8741_regs[WM8741_REG_VOLUME_CTRL] & VOL_SOFTMUTE) != 0;
+    *was_muted = (wm8741_regs[0][WM8741_REG_VOLUME_CTRL] & VOL_SOFTMUTE) != 0;
     return wm8741_mute_all();
 }
 
@@ -227,18 +226,19 @@ static esp_err_t cmd_filter(wm8741_channel_t ch, const char *args, char *respons
     esp_err_t ret;
 
     if (ch == WM8741_CH_BOTH) {
-        uint8_t current_left = wm8741_regs[WM8741_REG_FILTER_CTRL];
+        uint8_t current_left = wm8741_regs[0][WM8741_REG_FILTER_CTRL];
         current_left = (current_left & ~FILT_FIRSEL_MASK) | new_val;
         ret = wm8741_write_reg(dev_handle_left, WM8741_REG_FILTER_CTRL, current_left);
         if (ret != ESP_OK) goto fail;
 
-        uint8_t current_right = wm8741_regs[WM8741_REG_FILTER_CTRL];
+        uint8_t current_right = wm8741_regs[1][WM8741_REG_FILTER_CTRL];
         current_right = (current_right & ~FILT_FIRSEL_MASK) | new_val;
         ret = wm8741_write_reg(dev_handle_right, WM8741_REG_FILTER_CTRL, current_right);
         if (ret != ESP_OK) goto fail;
     } else {
         i2c_master_dev_handle_t dev = dev_for_channel(ch);
-        uint8_t current = wm8741_regs[WM8741_REG_FILTER_CTRL];
+        int idx = (ch == WM8741_CH_RIGHT) ? 1 : 0;
+        uint8_t current = wm8741_regs[idx][WM8741_REG_FILTER_CTRL];
         current = (current & ~FILT_FIRSEL_MASK) | new_val;
         ret = wm8741_write_reg(dev, WM8741_REG_FILTER_CTRL, current);
         if (ret != ESP_OK) goto fail;
@@ -264,18 +264,19 @@ static esp_err_t cmd_deemph(wm8741_channel_t ch, const char *args, char *respons
     esp_err_t ret;
 
     if (ch == WM8741_CH_BOTH) {
-        uint8_t current_left = wm8741_regs[WM8741_REG_FILTER_CTRL];
+        uint8_t current_left = wm8741_regs[0][WM8741_REG_FILTER_CTRL];
         current_left = (current_left & ~FILT_DEEMPH_MASK) | new_val;
         ret = wm8741_write_reg(dev_handle_left, WM8741_REG_FILTER_CTRL, current_left);
         if (ret != ESP_OK) goto fail;
 
-        uint8_t current_right = wm8741_regs[WM8741_REG_FILTER_CTRL];
+        uint8_t current_right = wm8741_regs[1][WM8741_REG_FILTER_CTRL];
         current_right = (current_right & ~FILT_DEEMPH_MASK) | new_val;
         ret = wm8741_write_reg(dev_handle_right, WM8741_REG_FILTER_CTRL, current_right);
         if (ret != ESP_OK) goto fail;
     } else {
         i2c_master_dev_handle_t dev = dev_for_channel(ch);
-        uint8_t current = wm8741_regs[WM8741_REG_FILTER_CTRL];
+        int idx = (ch == WM8741_CH_RIGHT) ? 1 : 0;
+        uint8_t current = wm8741_regs[idx][WM8741_REG_FILTER_CTRL];
         current = (current & ~FILT_DEEMPH_MASK) | new_val;
         ret = wm8741_write_reg(dev, WM8741_REG_FILTER_CTRL, current);
         if (ret != ESP_OK) goto fail;
@@ -334,16 +335,17 @@ static esp_err_t cmd_format(wm8741_channel_t ch, const char *args, char *respons
     vTaskDelay(pdMS_TO_TICKS(20));
 
     if (ch == WM8741_CH_BOTH) {
-        uint8_t current_left = (uint8_t)((wm8741_regs[WM8741_REG_FORMAT_CTRL] & ~format_mask) | new_val);
+        uint8_t current_left = (uint8_t)((wm8741_regs[0][WM8741_REG_FORMAT_CTRL] & ~format_mask) | new_val);
         ret = wm8741_write_reg(dev_handle_left, WM8741_REG_FORMAT_CTRL, current_left);
         if (ret != ESP_OK) goto fail_unmute;
 
-        uint8_t current_right = (uint8_t)((wm8741_regs[WM8741_REG_FORMAT_CTRL] & ~format_mask) | new_val);
+        uint8_t current_right = (uint8_t)((wm8741_regs[1][WM8741_REG_FORMAT_CTRL] & ~format_mask) | new_val);
         ret = wm8741_write_reg(dev_handle_right, WM8741_REG_FORMAT_CTRL, current_right);
         if (ret != ESP_OK) goto fail_unmute;
     } else {
         i2c_master_dev_handle_t dev = dev_for_channel(ch);
-        uint8_t current = (uint8_t)((wm8741_regs[WM8741_REG_FORMAT_CTRL] & ~format_mask) | new_val);
+        int idx = (ch == WM8741_CH_RIGHT) ? 1 : 0;
+        uint8_t current = (uint8_t)((wm8741_regs[idx][WM8741_REG_FORMAT_CTRL] & ~format_mask) | new_val);
         ret = wm8741_write_reg(dev, WM8741_REG_FORMAT_CTRL, current);
         if (ret != ESP_OK) goto fail_unmute;
     }
@@ -358,110 +360,6 @@ fail_unmute:
     mute_end(was_muted);
 fail:
     snprintf(response, response_len, "ERR Format %s failed: %d\n", channel_name(ch), ret);
-    return ESP_OK;
-}
-
-static esp_err_t cmd_mclk(const char *args, char *response, size_t response_len)
-{
-    int freq;
-    if (sscanf(args, "%d", &freq) != 1 || (freq != 22 && freq != 24)) {
-        snprintf(response, response_len, "ERR Use: MCLK 22|24\n");
-        return ESP_OK;
-    }
-
-    /* MCLK 为系统级信号，切换时钟前先静音，切换稳定后再恢复 */
-    bool was_muted;
-    esp_err_t ret = mute_begin(&was_muted);
-    if (ret != ESP_OK) goto done;
-    vTaskDelay(pdMS_TO_TICKS(20));
-
-    ret = wm8741_set_mclk_freq(freq == 22);
-    if (ret == ESP_OK) {
-        vTaskDelay(pdMS_TO_TICKS(50));
-    }
-    mute_end(was_muted);
-
-done:
-    if (ret == ESP_OK) {
-        snprintf(response, response_len, "OK MCLK %dMHz\n", freq);
-    } else {
-        snprintf(response, response_len, "ERR MCLK failed: %d\n", ret);
-    }
-    return ESP_OK;
-}
-
-/**
- * @brief Sample rate table: input rate (kHz) -> WM8741 SR[2:0] code and the
- *        matching MCLK crystal (true = 22 MHz, false = 24 MHz).
- *
- * 44.1 kHz family (44.1/88.2/176.4) uses the 22 MHz crystal,
- * 48 kHz family (32/48/96/192) uses the 24 MHz crystal.
- */
-typedef struct {
-    float rate;
-    uint8_t sr_code;
-    bool use_22mhz;
-} srate_entry_t;
-
-static const srate_entry_t srate_table[] = {
-    { 32.0f,   0, false },
-    { 44.1f,   1, true  },
-    { 48.0f,   2, false },
-    { 88.2f,   3, true  },
-    { 96.0f,   4, false },
-    { 176.4f,  5, true  },
-    { 192.0f,  6, false },
-};
-
-static esp_err_t cmd_srate(const char *args, char *response, size_t response_len)
-{
-    float rate;
-    if (sscanf(args, "%f", &rate) != 1) {
-        snprintf(response, response_len, "ERR Use: SRATE 32|44.1|48|88.2|96|176.4|192\n");
-        return ESP_OK;
-    }
-
-    const srate_entry_t *entry = NULL;
-    for (size_t i = 0; i < sizeof(srate_table) / sizeof(srate_table[0]); i++) {
-        if (fabsf(rate - srate_table[i].rate) < 0.01f) {
-            entry = &srate_table[i];
-            break;
-        }
-    }
-    if (entry == NULL) {
-        snprintf(response, response_len, "ERR Unsupported sample rate: %.1f\n", rate);
-        return ESP_OK;
-    }
-
-    /* 与主时钟联动：先静音，切换 MCLK，再写采样率寄存器，最后恢复 */
-    bool was_muted;
-    esp_err_t ret = mute_begin(&was_muted);
-    if (ret != ESP_OK) goto done;
-    vTaskDelay(pdMS_TO_TICKS(20));
-
-    ret = wm8741_set_mclk_freq(entry->use_22mhz);
-    if (ret != ESP_OK) goto restore;
-    vTaskDelay(pdMS_TO_TICKS(50));
-
-    uint8_t new_mode1 = (uint8_t)((wm8741_regs[WM8741_REG_MODE_CTRL1] & ~(0x07 << MODE_SR_SHIFT)) |
-                                  (entry->sr_code << MODE_SR_SHIFT));
-    ret = wm8741_write_reg(dev_handle_left, WM8741_REG_MODE_CTRL1, new_mode1);
-    if (ret != ESP_OK) goto restore;
-    ret = wm8741_write_reg(dev_handle_right, WM8741_REG_MODE_CTRL1, new_mode1);
-    if (ret != ESP_OK) goto restore;
-
-    vTaskDelay(pdMS_TO_TICKS(20));
-
-restore:
-    mute_end(was_muted);
-
-done:
-    if (ret == ESP_OK) {
-        snprintf(response, response_len, "OK SRATE %.1fkHz (MCLK %dMHz)\n",
-                 entry->rate, entry->use_22mhz ? 22 : 24);
-    } else {
-        snprintf(response, response_len, "ERR SRATE failed: %d\n", ret);
-    }
     return ESP_OK;
 }
 
@@ -498,6 +396,7 @@ esp_err_t wm8741_handle_command(const char *cmd, char *response, size_t response
 {
     char cmd_lower[128];
     const char *args;
+    esp_err_t ret = ESP_OK;
 
     if (cmd == NULL || response == NULL || response_len == 0) {
         return ESP_ERR_INVALID_ARG;
@@ -514,59 +413,54 @@ esp_err_t wm8741_handle_command(const char *cmd, char *response, size_t response
     if (strncmp(cmd_lower, "reset", 5) == 0) {
         args = cmd + 5;
         wm8741_channel_t ch = parse_channel(&args);
-        return cmd_reset(ch, args, response, response_len);
+        ret = cmd_reset(ch, args, response, response_len);
     }
     else if (strncmp(cmd_lower, "mute", 4) == 0) {
         args = cmd + 4;
         wm8741_channel_t ch = parse_channel(&args);
-        return cmd_mute(ch, args, response, response_len);
+        ret = cmd_mute(ch, args, response, response_len);
     }
     else if (strncmp(cmd_lower, "volume", 6) == 0) {
         args = cmd + 6;
         wm8741_channel_t ch = parse_channel(&args);
-        return cmd_volume(ch, args, response, response_len);
+        ret = cmd_volume(ch, args, response, response_len);
     }
     else if (strncmp(cmd_lower, "atten", 5) == 0) {
         args = cmd + 5;
         wm8741_channel_t ch = parse_channel(&args);
-        return cmd_atten(ch, args, response, response_len);
+        ret = cmd_atten(ch, args, response, response_len);
     }
     else if (strncmp(cmd_lower, "filter", 6) == 0) {
         args = cmd + 6;
         wm8741_channel_t ch = parse_channel(&args);
-        return cmd_filter(ch, args, response, response_len);
+        ret = cmd_filter(ch, args, response, response_len);
     }
     else if (strncmp(cmd_lower, "format", 6) == 0) {
         args = cmd + 6;
         wm8741_channel_t ch = parse_channel(&args);
-        return cmd_format(ch, args, response, response_len);
-    }
-    else if (strncmp(cmd_lower, "mclk", 4) == 0) {
-        args = cmd + 4;
-        return cmd_mclk(args, response, response_len);
-    }
-    else if (strncmp(cmd_lower, "srate", 5) == 0) {
-        args = cmd + 5;
-        return cmd_srate(args, response, response_len);
+        ret = cmd_format(ch, args, response, response_len);
     }
     else if (strncmp(cmd_lower, "deemph", 6) == 0) {
         args = cmd + 6;
         wm8741_channel_t ch = parse_channel(&args);
-        return cmd_deemph(ch, args, response, response_len);
+        ret = cmd_deemph(ch, args, response, response_len);
     }
     else if (strncmp(cmd_lower, "anticlip", 8) == 0) {
         args = cmd + 8;
         wm8741_channel_t ch = parse_channel(&args);
-        return cmd_anticlip(ch, args, response, response_len);
+        ret = cmd_anticlip(ch, args, response, response_len);
     }
     else if (strncmp(cmd_lower, "set_reg", 7) == 0) {
         args = cmd + 7;
         wm8741_channel_t ch = parse_channel(&args);
-        return cmd_set_reg(ch, args, response, response_len);
+        ret = cmd_set_reg(ch, args, response, response_len);
     }
     else {
         snprintf(response, response_len, "ERR Unknown command\n");
     }
 
-    return ESP_OK;
+    /* 在每条命令响应后附加左右芯片寄存器状态 */
+    wm8741_append_regs_state(response, response_len);
+
+    return ret;
 }

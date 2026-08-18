@@ -89,28 +89,6 @@ export class CommandProtocol {
   }
 
   /**
-   * Validate that a volume step is within the WM8741 range.
-   *
-   * @throws {ProtocolError} if out of range.
-   */
-  static validateVolume(steps: number): void {
-    if (!Number.isInteger(steps) || steps < 0 || steps > 127) {
-      throw new ProtocolError('Volume must be an integer between 0 and 127');
-    }
-  }
-
-  /**
-   * Validate that a filter response index is within range.
-   *
-   * @throws {ProtocolError} if out of range.
-   */
-  static validateFilter(response: number): void {
-    if (!Number.isInteger(response) || response < 1 || response > 5) {
-      throw new ProtocolError('Filter response must be an integer between 1 and 5');
-    }
-  }
-
-  /**
    * Validate an 8-bit register address and value.
    *
    * @throws {ProtocolError} if out of range.
@@ -121,52 +99,6 @@ export class CommandProtocol {
     }
     if (!Number.isInteger(value) || value < 0 || value > 0xFF) {
       throw new ProtocolError('Register value must be between 0 and 0xFF');
-    }
-  }
-
-  /**
-   * Validate an input audio format and word length for the WM8741.
-   *
-   * `format` values: 0 = Right Justified, 1 = Left Justified, 2 = I2S, 3 = DSP.
-   * `wordLength` values: 0 = 16-bit, 1 = 20-bit, 2 = 24-bit, 3 = 32-bit.
-   *
-   * @throws {ProtocolError} if out of range.
-   */
-  static validateFormat(format: number, wordLength: number): void {
-    if (!Number.isInteger(format) || format < 0 || format > 3) {
-      throw new ProtocolError('Input format must be 0 (RJ), 1 (LJ), 2 (I2S), or 3 (DSP)');
-    }
-    if (!Number.isInteger(wordLength) || wordLength < 0 || wordLength > 3) {
-      throw new ProtocolError('Word length must be 0 (16), 1 (20), 2 (24), or 3 (32 bit)');
-    }
-  }
-
-  /**
-   * Validate an MCLK source frequency for the WM8741.
-   *
-   * @throws {ProtocolError} if not 22 or 24 MHz.
-   */
-  static validateMclkFrequency(freq: number): void {
-    if (freq !== 22 && freq !== 24) {
-      throw new ProtocolError('MCLK frequency must be 22 or 24 MHz');
-    }
-  }
-
-  /**
-   * Validate an input sample rate (kHz) supported by the firmware.
-   *
-   * The firmware auto-selects the matching MCLK crystal:
-   * 44.1 kHz family (44.1/88.2/176.4) -> 22 MHz,
-   * 48 kHz family (32/48/96/192) -> 24 MHz.
-   *
-   * @throws {ProtocolError} if not a supported rate.
-   */
-  static validateSampleRate(rate: number): void {
-    const supported = [32, 44.1, 48, 88.2, 96, 176.4, 192];
-    if (!supported.includes(rate)) {
-      throw new ProtocolError(
-        'Sample rate must be one of 32, 44.1, 48, 88.2, 96, 176.4, or 192 kHz'
-      );
     }
   }
 

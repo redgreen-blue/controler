@@ -83,8 +83,9 @@ typedef enum {
 /* ==================== 跨模块共享的底层接口 ==================== */
 /* 以下符号定义于 i2c_basic_example_main.c，供 wm8741_commands.c 调用。 */
 
-/* 影子寄存器：维护 WM8741 各寄存器的最新写入值 */
-extern uint8_t wm8741_regs[0x80];
+/* 影子寄存器：维护各芯片各寄存器的最新写入值 */
+/* [0]=左声道(0x1A), [1]=右声道(0x1B) */
+extern uint8_t wm8741_regs[2][0x80];
 
 /* 左右声道的 I2C 设备句柄 */
 extern i2c_master_dev_handle_t dev_handle_left;
@@ -101,15 +102,15 @@ esp_err_t wm8741_update_reg_bit(uint8_t reg, uint8_t bit_mask, uint8_t bit_value
 esp_err_t wm8741_set_attenuation_ch(wm8741_channel_t ch, uint16_t att_value);
 void wm8741_set_attenuation(uint16_t att_value);
 
-/* 切换 MCLK 晶体（true = 22 MHz，false = 24 MHz） */
-esp_err_t wm8741_set_mclk_freq(bool use_22mhz);
-
 /* 全芯片静音 / 解除静音 */
 esp_err_t wm8741_mute_all(void);
 esp_err_t wm8741_unmute_all(void);
 
 /* 单芯片完整初始化（软复位后恢复 mono 差分模式、格式、滤波器等） */
 esp_err_t wm8741_init_chip(i2c_master_dev_handle_t dev, const char *label);
+
+/* 向响应字符串末尾追加左右芯片的寄存器状态快照 */
+void wm8741_append_regs_state(char *buf, size_t buf_size);
 
 /**
  * @brief Parse and execute a WM8741 control command.
@@ -121,8 +122,6 @@ esp_err_t wm8741_init_chip(i2c_master_dev_handle_t dev, const char *label);
  *   ATTEN [L/R/BOTH] 0-1023
  *   FILTER [L/R/BOTH] 1-5
  *   FORMAT [L/R/BOTH] <fmt 0=RJ 1=LJ 2=I2S 3=DSP> <iwl 0=16 1=20 2=24 3=32>
- *   MCLK 22|24
- *   SRATE 32|44.1|48|88.2|96|176.4|192
  *   DEEMPH [L/R/BOTH] 0-3
  *   ANTICLIP [L/R/BOTH] 0/1
  *   SET_REG [L/R/BOTH] <hex_reg> <hex_val>

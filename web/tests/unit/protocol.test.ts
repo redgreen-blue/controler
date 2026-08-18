@@ -73,46 +73,10 @@ describe('CommandProtocol', () => {
   });
 
   describe('validators', () => {
-    it('validates volume range', () => {
-      expect(() => CommandProtocol.validateVolume(50)).not.toThrow();
-      expect(() => CommandProtocol.validateVolume(-1)).toThrow(ProtocolError);
-      expect(() => CommandProtocol.validateVolume(128)).toThrow(ProtocolError);
-      expect(() => CommandProtocol.validateVolume(1.5)).toThrow(ProtocolError);
-    });
-
-    it('validates filter range', () => {
-      expect(() => CommandProtocol.validateFilter(3)).not.toThrow();
-      expect(() => CommandProtocol.validateFilter(0)).toThrow(ProtocolError);
-      expect(() => CommandProtocol.validateFilter(6)).toThrow(ProtocolError);
-    });
-
     it('validates register range', () => {
       expect(() => CommandProtocol.validateRegister(0x04, 0xff)).not.toThrow();
       expect(() => CommandProtocol.validateRegister(0x80, 0x00)).toThrow(ProtocolError);
       expect(() => CommandProtocol.validateRegister(0x00, 0x100)).toThrow(ProtocolError);
-    });
-
-    it('validates input format and word length', () => {
-      expect(() => CommandProtocol.validateFormat(2, 2)).not.toThrow();
-      expect(() => CommandProtocol.validateFormat(0, 3)).not.toThrow();
-      expect(() => CommandProtocol.validateFormat(4, 2)).toThrow(ProtocolError);
-      expect(() => CommandProtocol.validateFormat(-1, 2)).toThrow(ProtocolError);
-      expect(() => CommandProtocol.validateFormat(2, 4)).toThrow(ProtocolError);
-      expect(() => CommandProtocol.validateFormat(2, 1.5)).toThrow(ProtocolError);
-    });
-
-    it('validates MCLK frequency', () => {
-      expect(() => CommandProtocol.validateMclkFrequency(22)).not.toThrow();
-      expect(() => CommandProtocol.validateMclkFrequency(24)).not.toThrow();
-      expect(() => CommandProtocol.validateMclkFrequency(44.1)).toThrow(ProtocolError);
-      expect(() => CommandProtocol.validateMclkFrequency(0)).toThrow(ProtocolError);
-    });
-
-    it('validates sample rate', () => {
-      expect(() => CommandProtocol.validateSampleRate(44.1)).not.toThrow();
-      expect(() => CommandProtocol.validateSampleRate(192)).not.toThrow();
-      expect(() => CommandProtocol.validateSampleRate(44)).toThrow(ProtocolError);
-      expect(() => CommandProtocol.validateSampleRate(0)).toThrow(ProtocolError);
     });
 
     it('validates channel target', () => {

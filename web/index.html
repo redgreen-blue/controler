@@ -8,391 +8,464 @@
     <meta http-equiv="Expires" content="0">
     <title>WM8741 BLE 控制</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 500px; margin: 20px auto; padding: 10px; background: #f0f0f0; }
-        .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .row { display: flex; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
-        .label { width: 100px; font-weight: bold; }
-        .slider { flex: 1; min-width: 150px; }
-        .value { width: 40px; text-align: center; }
-        .radio-group { display: flex; gap: 8px; flex-wrap: wrap; }
-        button { background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
-        button:disabled { background: #ccc; }
-        .checkbox-group label { display: flex; align-items: center; gap: 4px; margin-right: 12px; }
-        .log { background: #e9ecef; padding: 8px; border-radius: 4px; font-size: 12px; max-height: 120px; overflow-y: auto; white-space: pre-wrap; }
-        .connect-btn { background: #28a745; }
-        .connect-btn:disabled { background: #ccc; }
-        .status { margin-left: 10px; font-weight: bold; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 12px; background: #f5f5f5; color: #333; }
+        h1 { text-align: center; font-size: 20px; margin: 8px 0 16px; }
+        .card { background: white; border-radius: 10px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+        .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .radio-group { display: flex; gap: 16px; flex-wrap: wrap; }
+        .radio-group label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+        button { background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+        button:disabled { background: #bbb; cursor: not-allowed; }
+        button.send-btn { background: #28a745; width: 100%; margin-top: 10px; padding: 10px; font-weight: bold; }
+        button.send-btn:hover:not(:disabled) { background: #218838; }
+        button.connect-btn { background: #28a745; }
+        button.connect-btn:hover:not(:disabled) { background: #218838; }
+        button.reset-btn { background: #dc3545; }
+        button.reset-btn:hover:not(:disabled) { background: #c82333; }
+        .status { margin-left: 10px; font-weight: bold; font-size: 14px; }
         .status.idle { color: #666; }
         .status.connected { color: green; }
         .status.reconnecting { color: orange; }
         .status.disconnected, .status.error { color: red; }
-        .banner { background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 12px; margin-bottom: 20px; font-size: 14px; }
-        .banner.error { background: #f8d7da; border-color: #f5c6cb; }
-        .banner.hidden { display: none; }
+        .log { background: #1e1e1e; color: #d4d4d4; padding: 10px; border-radius: 6px; font-size: 12px; max-height: 180px; overflow-y: auto; white-space: pre-wrap; font-family: 'Consolas', 'Courier New', monospace; line-height: 1.4; }
+        .log .sent { color: #6a9955; }
+        .log .recv { color: #9cdcfe; }
+        .log .err  { color: #f44747; }
+
+        /* Panel styles */
+        .panel { border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
+        .panel-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #fafafa; cursor: pointer; user-select: none; transition: background 0.15s; }
+        .panel-header:hover { background: #f0f0f0; }
+        .panel-header .reg-info { flex: 1; }
+        .panel-header .reg-name { font-weight: bold; font-size: 15px; }
+        .panel-header .reg-desc { font-size: 12px; color: #888; margin-top: 2px; }
+        .panel-header .reg-addr { font-size: 11px; color: #aaa; font-family: monospace; margin-left: 8px; }
+        .panel-header .arrow { font-size: 12px; color: #999; transition: transform 0.2s; margin-left: 8px; }
+        .panel.open .panel-header .arrow { transform: rotate(180deg); }
+        .panel-body { display: none; padding: 12px 14px; border-top: 1px solid #e8e8e8; }
+        .panel.open .panel-body { display: block; }
+        .field-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; flex-wrap: wrap; }
+        .field-row + .field-row { border-top: 1px solid #f5f5f5; }
+        .field-label { min-width: 140px; font-size: 13px; font-weight: 500; }
+        .field-desc { font-size: 11px; color: #999; margin-left: 4px; }
+        .field-control { flex: 1; }
+        .field-control select { padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
+        .field-control input[type="range"] { width: 100%; max-width: 200px; }
+        .field-control input[type="number"] { width: 70px; padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
+        .field-value { font-size: 13px; font-family: monospace; min-width: 30px; text-align: right; }
+        .field-row.checkbox-row { gap: 6px; }
+        .field-row.checkbox-row .field-control { flex: 0; }
+        .reg-hex { font-family: monospace; font-size: 12px; color: #666; margin-left: auto; padding: 2px 6px; background: #eee; border-radius: 3px; }
     </style>
 </head>
 <body>
-    <h1>🎛️ WM8741 BLE 控制</h1>
-    <p style="text-align:center; color:#666; font-size:12px; margin-top:-10px;">
-        v2 · Service: 0x1234
-    </p>
-
-    <div id="contextBanner" class="banner hidden"></div>
+    <h1>WM8741 BLE 控制</h1>
 
     <div class="card">
-        <button id="connectBtn" class="connect-btn">连接设备</button>
-        <span id="status" class="status idle">未连接</span>
-    </div>
-
-    <div class="card">
-        <h2>音量</h2>
         <div class="row">
-            <span class="label">衰减 (0~127)</span>
-            <input type="range" class="slider" id="volSlider" min="0" max="127" value="0" disabled>
-            <span class="value" id="volDisplay">0</span>
-            <button id="applyVol" disabled>应用</button>
+            <button id="connectBtn" class="connect-btn">连接设备</button>
+            <span id="status" class="status idle">未连接</span>
         </div>
     </div>
 
     <div class="card">
-        <h2>滤波器响应</h2>
-        <div class="row">
-            <span class="label">选择</span>
-            <div class="radio-group" id="filterGroup">
-                <label><input type="radio" name="filter" value="1" checked disabled> 1</label>
-                <label><input type="radio" name="filter" value="2" disabled> 2</label>
-                <label><input type="radio" name="filter" value="3" disabled> 3</label>
-                <label><input type="radio" name="filter" value="4" disabled> 4</label>
-                <label><input type="radio" name="filter" value="5" disabled> 5</label>
-            </div>
+        <h3 style="margin-bottom:8px;">控制模式</h3>
+        <div class="radio-group" id="channelGroup">
+            <label><input type="radio" name="channel" value="both" checked> 双芯片 (BOTH)</label>
+            <label><input type="radio" name="channel" value="left"> 左芯片 (L)</label>
+            <label><input type="radio" name="channel" value="right"> 右芯片 (R)</label>
         </div>
     </div>
 
-    <div class="card">
-        <h2>输入音频格式</h2>
-        <div class="row">
-            <span class="label">格式</span>
-            <select id="fmtSelect" disabled>
-                <option value="2" selected>I2S</option>
-                <option value="0">右对齐 RJ</option>
-                <option value="1">左对齐 LJ</option>
-                <option value="3">DSP</option>
-            </select>
-            <span class="label">字长</span>
-            <select id="iwlSelect" disabled>
-                <option value="2" selected>24-bit</option>
-                <option value="0">16-bit</option>
-                <option value="1">20-bit</option>
-                <option value="3">32-bit</option>
-            </select>
-            <button id="applyFmt" disabled>应用</button>
-        </div>
-    </div>
+    <div id="registers"></div>
 
     <div class="card">
-        <h2>时钟频率 (MCLK)</h2>
-        <div class="row">
-            <span class="label">选择</span>
-            <div class="radio-group" id="mclkGroup">
-                <label><input type="radio" name="mclk" value="22" disabled> 22 MHz</label>
-                <label><input type="radio" name="mclk" value="24" checked disabled> 24 MHz</label>
-            </div>
-            <button id="applyMclk" disabled>应用</button>
-        </div>
-    </div>
-
-    <div class="card">
-        <h2>输入采样率 (SRATE)</h2>
-        <div class="row">
-            <span class="label">选择</span>
-            <select id="srateSelect" disabled>
-                <option value="48" selected>48 kHz</option>
-                <option value="32">32 kHz</option>
-                <option value="44.1">44.1 kHz</option>
-                <option value="88.2">88.2 kHz</option>
-                <option value="96">96 kHz</option>
-                <option value="176.4">176.4 kHz</option>
-                <option value="192">192 kHz</option>
-            </select>
-            <button id="applySrate" disabled>应用</button>
-        </div>
-        <p style="font-size:12px; color:#666; margin:4px 0 0;">44.1kHz 系列自动切换 22MHz 时钟，48kHz 系列自动切换 24MHz 时钟</p>
-    </div>
-
-    <div class="card">
-        <h2>去加重 (DEEMPH)</h2>
-        <div class="row">
-            <span class="label">选择</span>
-            <div class="radio-group" id="deemphGroup">
-                <label><input type="radio" name="deemph" value="0" checked disabled> 关</label>
-                <label><input type="radio" name="deemph" value="1" disabled> 44.1 kHz</label>
-                <label><input type="radio" name="deemph" value="2" disabled> 48 kHz</label>
-                <label><input type="radio" name="deemph" value="3" disabled> 32 kHz</label>
-            </div>
-        </div>
-    </div>
-
-    <div class="card">
-        <h2>开关选项</h2>
-        <div class="checkbox-group">
-            <label><input type="checkbox" id="muteChk" disabled> 静音</label>
-            <label><input type="checkbox" id="rampChk" disabled> 音量渐变</label>
-            <label><input type="checkbox" id="anticlipChk" disabled> 防削波 (2dB)</label>
-        </div>
-        <button id="applyOpts" disabled>应用选项</button>
-        <button id="resetBtn" style="background:#dc3545;" disabled>复位</button>
-    </div>
-
-    <div class="card">
-        <h2>寄存器直接写入</h2>
-        <div class="row">
-            <span class="label">目标芯片</span>
-            <div class="radio-group" id="regChannelGroup">
-                <label><input type="radio" name="regChannel" value="both" checked disabled> 双 (BOTH)</label>
-                <label><input type="radio" name="regChannel" value="left" disabled> 左 (L)</label>
-                <label><input type="radio" name="regChannel" value="right" disabled> 右 (R)</label>
-            </div>
-        </div>
-        <div class="row">
-            <span class="label">Reg (hex):</span>
-            <input type="text" id="regAddr" placeholder="04" style="width:60px;" disabled>
-            <span class="label">Val (hex):</span>
-            <input type="text" id="regVal" placeholder="01" style="width:60px;" disabled>
-            <button id="writeReg" disabled>写入</button>
-        </div>
-    </div>
-
-    <div class="card">
-        <h2>日志</h2>
+        <h3 style="margin-bottom:8px;">日志</h3>
         <div class="log" id="logArea">等待连接...</div>
     </div>
 
-    <script src="./dist/wm8741-ble.umd.js?v=4"></script>
+    <script src="./dist/wm8741-ble.umd.js?v=5"></script>
     <script>
-        const client = new WM8741BLE.WM8741BLEClient();
-
-        const connectBtn = document.getElementById('connectBtn');
-        const statusEl = document.getElementById('status');
-        const logArea = document.getElementById('logArea');
-        const volSlider = document.getElementById('volSlider');
-        const volDisplay = document.getElementById('volDisplay');
-        const applyVol = document.getElementById('applyVol');
-        const filterRadios = document.querySelectorAll('input[name="filter"]');
-        const fmtSelect = document.getElementById('fmtSelect');
-        const iwlSelect = document.getElementById('iwlSelect');
-        const applyFmt = document.getElementById('applyFmt');
-        const mclkRadios = document.querySelectorAll('input[name="mclk"]');
-        const applyMclk = document.getElementById('applyMclk');
-        const srateSelect = document.getElementById('srateSelect');
-        const applySrate = document.getElementById('applySrate');
-        const deemphRadios = document.querySelectorAll('input[name="deemph"]');
-        const muteChk = document.getElementById('muteChk');
-        const rampChk = document.getElementById('rampChk');
-        const anticlipChk = document.getElementById('anticlipChk');
-        const applyOpts = document.getElementById('applyOpts');
-        const resetBtn = document.getElementById('resetBtn');
-        const regAddr = document.getElementById('regAddr');
-        const regVal = document.getElementById('regVal');
-        const writeReg = document.getElementById('writeReg');
-        const regChannelRadios = document.querySelectorAll('input[name="regChannel"]');
-        const contextBanner = document.getElementById('contextBanner');
-
-        const controls = [volSlider, applyVol, ...filterRadios, fmtSelect, iwlSelect, applyFmt, ...mclkRadios, applyMclk, srateSelect, applySrate, ...deemphRadios, muteChk, rampChk, anticlipChk, applyOpts, resetBtn, regAddr, regVal, writeReg, ...regChannelRadios];
-
-        function setControlsEnabled(enabled) {
-            controls.forEach(el => el.disabled = !enabled);
+    // ==================== Register Definitions ====================
+    const REGISTERS = [
+        {
+            addr: 0x00, name: 'DACLLSB Attenuation',
+            desc: '左声道 DAC LSB 衰减值',
+            fields: [
+                { label: 'LAT[4:0]', desc: '衰减低5位',     bitHi: 4, bitLo: 0, type: 'num',  min: 0, max: 31, default: 0 },
+                { label: 'UPDATELL', desc: '触发加载更新',  bitHi: 5, bitLo: 5, type: 'bool', default: 0 }
+            ]
+        },
+        {
+            addr: 0x01, name: 'DACLMSB Attenuation',
+            desc: '左声道 DAC MSB 衰减值',
+            fields: [
+                { label: 'LAT[9:5]', desc: '衰减高5位',     bitHi: 4, bitLo: 0, type: 'num',  min: 0, max: 31, default: 0 },
+                { label: 'UPDATELM', desc: '触发加载更新',  bitHi: 5, bitLo: 5, type: 'bool', default: 0 }
+            ]
+        },
+        {
+            addr: 0x02, name: 'DACRLSB Attenuation',
+            desc: '右声道 DAC LSB 衰减值',
+            fields: [
+                { label: 'RAT[4:0]', desc: '衰减低5位',     bitHi: 4, bitLo: 0, type: 'num',  min: 0, max: 31, default: 0 },
+                { label: 'UPDATERL', desc: '触发加载更新',  bitHi: 5, bitLo: 5, type: 'bool', default: 0 }
+            ]
+        },
+        {
+            addr: 0x03, name: 'DACRMSB Attenuation',
+            desc: '右声道 DAC MSB 衰减值',
+            fields: [
+                { label: 'RAT[9:5]', desc: '衰减高5位',     bitHi: 4, bitLo: 0, type: 'num',  min: 0, max: 31, default: 0 },
+                { label: 'UPDATERM', desc: '触发加载更新',  bitHi: 5, bitLo: 5, type: 'bool', default: 0 }
+            ]
+        },
+        {
+            addr: 0x04, name: 'Volume Control',
+            desc: '音量控制与静音',
+            fields: [
+                { label: 'VOL_RAMP',  desc: '音量渐变',         bitHi: 0, bitLo: 0, type: 'bool',   default: 0 },
+                { label: 'ATT2DB',    desc: '防削波 2dB',       bitHi: 1, bitLo: 1, type: 'bool',   default: 0 },
+                { label: 'IZD',       desc: '无限零检测',       bitHi: 2, bitLo: 2, type: 'bool',   default: 0 },
+                { label: 'SOFTMUTE',  desc: '软静音',           bitHi: 3, bitLo: 3, type: 'bool',   default: 0 },
+                { label: 'ATC',       desc: '左声道衰减控制',   bitHi: 4, bitLo: 4, type: 'bool',   default: 0 },
+                { label: 'ATC_R',     desc: '右声道衰减控制',   bitHi: 5, bitLo: 5, type: 'bool',   default: 0 },
+                { label: 'ZFLAG',     desc: '零标志 (只读)',    bitHi: 7, bitLo: 6, type: 'select', options: [
+                    { label: '独立', value: 0 }, { label: '左与右', value: 1 }, { label: '左或右', value: 2 }, { label: '保留', value: 3 }
+                ], default: 0 }
+            ]
+        },
+        {
+            addr: 0x05, name: 'Format Control',
+            desc: 'PCM 音频接口格式',
+            fields: [
+                { label: 'IWL',   desc: '输入字长',         bitHi: 1, bitLo: 0, type: 'select', options: [
+                    { label: '16-bit', value: 0 }, { label: '20-bit', value: 1 }, { label: '24-bit', value: 2 }, { label: '32-bit', value: 3 }
+                ], default: 2 },
+                { label: 'FMT',   desc: '数据格式',         bitHi: 3, bitLo: 2, type: 'select', options: [
+                    { label: '右对齐 RJ', value: 0 }, { label: '左对齐 LJ', value: 1 }, { label: 'I2S', value: 2 }, { label: 'DSP', value: 3 }
+                ], default: 2 },
+                { label: 'LRP',   desc: 'LR 极性',          bitHi: 4, bitLo: 4, type: 'select', options: [
+                    { label: '正常', value: 0 }, { label: '反转', value: 1 }
+                ], default: 0 },
+                { label: 'BCP',   desc: 'BCLK 极性',        bitHi: 5, bitLo: 5, type: 'select', options: [
+                    { label: '正常', value: 0 }, { label: '反转', value: 1 }
+                ], default: 0 },
+                { label: 'REV',   desc: '输出相位反转',     bitHi: 6, bitLo: 6, type: 'bool',   default: 0 },
+                { label: 'PWDN',  desc: '掉电模式',         bitHi: 7, bitLo: 7, type: 'bool',   default: 0 }
+            ]
+        },
+        {
+            addr: 0x06, name: 'Filter Control',
+            desc: '数字滤波器与去加重设置',
+            fields: [
+                { label: 'FIRSEL', desc: '滤波器响应',      bitHi: 2, bitLo: 0, type: 'select', options: [
+                    { label: '1 - 陡峭', value: 0 }, { label: '2 - 缓降', value: 1 }, { label: '3 - 陡峭', value: 2 }, { label: '4 - 缓降', value: 3 }, { label: '5 - 缓降', value: 4 }
+                ], default: 0 },
+                { label: 'DEEMPH', desc: '去加重',          bitHi: 6, bitLo: 5, type: 'select', options: [
+                    { label: '关', value: 0 }, { label: '44.1 kHz', value: 1 }, { label: '48 kHz', value: 2 }, { label: '32 kHz', value: 3 }
+                ], default: 0 }
+            ]
+        },
+        {
+            addr: 0x07, name: 'Mode Control 1',
+            desc: 'PCM/DSD 模式与采样率',
+            fields: [
+                { label: 'MODESEL', desc: 'PCM/DSD 模式',   bitHi: 1, bitLo: 0, type: 'select', options: [
+                    { label: 'PCM', value: 0 }, { label: 'DSD Direct', value: 1 }, { label: 'DSD Plus', value: 2 }
+                ], default: 0 },
+                { label: 'SR',      desc: '采样率',         bitHi: 4, bitLo: 2, type: 'select', options: [
+                    { label: '32 kHz', value: 0 }, { label: '44.1 kHz', value: 1 }, { label: '48 kHz', value: 2 },
+                    { label: '88.2 kHz', value: 3 }, { label: '96 kHz', value: 4 }, { label: '176.4 kHz', value: 5 }, { label: '192 kHz', value: 6 }
+                ], default: 0 },
+                { label: 'OSR',     desc: '过采样率',       bitHi: 6, bitLo: 5, type: 'select', options: [
+                    { label: '低', value: 0 }, { label: '高', value: 1 }
+                ], default: 0 },
+                { label: 'MUTEX',   desc: '8x 模式',        bitHi: 7, bitLo: 7, type: 'bool',   default: 0 }
+            ]
+        },
+        {
+            addr: 0x08, name: 'Mode Control 2',
+            desc: '差分/单声道/菊花链配置',
+            fields: [
+                { label: 'DITHER', desc: '抖动',            bitHi: 1, bitLo: 0, type: 'select', options: [
+                    { label: '关', value: 0 }, { label: '低', value: 1 }, { label: '中', value: 2 }, { label: '高', value: 3 }
+                ], default: 0 },
+                { label: 'DIFF',   desc: '差分单声道',      bitHi: 2, bitLo: 2, type: 'select', options: [
+                    { label: '立体声', value: 0 }, { label: '单声道', value: 1 }
+                ], default: 0 },
+                { label: 'LRSEL',  desc: '左右选择 (DIFF=1 时)', bitHi: 3, bitLo: 3, type: 'select', options: [
+                    { label: '左声道', value: 0 }, { label: '右声道', value: 1 }
+                ], default: 0 },
+                { label: 'DACDA',  desc: '菊花链音频',      bitHi: 4, bitLo: 4, type: 'bool',   default: 0 },
+                { label: 'DACDC',  desc: '菊花链控制',      bitHi: 5, bitLo: 5, type: 'bool',   default: 0 },
+                { label: 'DSDR',   desc: 'DSD 增益',        bitHi: 6, bitLo: 6, type: 'select', options: [
+                    { label: '低', value: 0 }, { label: '高', value: 1 }
+                ], default: 0 }
+            ]
+        },
+        {
+            addr: 0x09, name: 'Soft Reset',
+            desc: '软件复位 — 写入任意值触发全寄存器复位',
+            fields: []
+        },
+        {
+            addr: 0x20, name: 'Additional Control 1',
+            desc: '附加控制寄存器',
+            fields: [
+                { label: 'BIT[0]',    desc: '控制位 0',        bitHi: 0, bitLo: 0, type: 'bool',   default: 0 },
+                { label: 'BIT[1]',    desc: '控制位 1',        bitHi: 1, bitLo: 1, type: 'bool',   default: 1 },
+                { label: 'BIT[7:2]',  desc: '控制位 7-2',      bitHi: 7, bitLo: 2, type: 'num',    min: 0, max: 63, default: 0 }
+            ]
         }
+    ];
 
-        function log(msg) {
-            logArea.textContent = msg + '\n' + logArea.textContent;
-            if (logArea.textContent.length > 2000) logArea.textContent = logArea.textContent.substring(0, 2000);
+    // ==================== BLE Client ====================
+    const client = new WM8741BLE.WM8741BLEClient();
+    const connectBtn = document.getElementById('connectBtn');
+    const statusEl = document.getElementById('status');
+    const logArea = document.getElementById('logArea');
+    const channelRadios = document.querySelectorAll('input[name="channel"]');
+
+    function log(msg, cls) {
+        const clsAttr = cls ? ' class="' + cls + '"' : '';
+        logArea.innerHTML = '<span' + clsAttr + '>' + escHtml(msg) + '</span>\n' + logArea.innerHTML;
+        if (logArea.textContent.length > 3000) logArea.textContent = logArea.textContent.substring(0, 3000);
+    }
+
+    function escHtml(s) {
+        return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function getChannel() {
+        const el = document.querySelector('input[name="channel"]:checked');
+        return el ? el.value : 'both';
+    }
+
+    function updateStatus(state) {
+        statusEl.className = 'status ' + state;
+        const map = { idle: '未连接', scanning: '扫描中...', connecting: '连接中...', 'discovering-services': '发现服务...', connected: '已连接', reconnecting: '重连中...', disconnected: '已断开' };
+        statusEl.textContent = map[state] || state;
+    }
+
+    client.addEventListener('statechange', (event) => {
+        updateStatus(event.state);
+        const connected = event.state === 'connected';
+        channelRadios.forEach(r => r.disabled = !connected);
+        document.querySelectorAll('.send-btn').forEach(b => b.disabled = !connected);
+        document.querySelectorAll('.panel-header').forEach(h => h.style.pointerEvents = connected ? 'auto' : 'none');
+    });
+
+    client.addEventListener('response', (event) => {
+        log(event.response, 'recv');
+    });
+
+    client.addEventListener('disconnect', (event) => {
+        if (event.unexpected) log('连接意外断开，正在尝试自动重连...', 'err');
+    });
+
+    async function toggleConnection() {
+        try {
+            if (client.isConnected) {
+                await client.disconnect();
+                connectBtn.textContent = '连接设备';
+            } else {
+                await client.connect();
+                connectBtn.textContent = '断开连接';
+            }
+        } catch (err) {
+            log('错误: ' + err.message, 'err');
         }
+    }
 
-        function updateStatus(state) {
-            statusEl.className = 'status ' + state;
-            switch (state) {
-                case 'idle': statusEl.textContent = '未连接'; break;
-                case 'scanning': statusEl.textContent = '扫描中...'; break;
-                case 'connecting': statusEl.textContent = '连接中...'; break;
-                case 'discovering-services': statusEl.textContent = '发现服务...'; break;
-                case 'connected': statusEl.textContent = '已连接'; break;
-                case 'reconnecting': statusEl.textContent = '重连中...'; break;
-                case 'disconnected': statusEl.textContent = '已断开'; break;
-                default: statusEl.textContent = state;
-            }
-        }
+    connectBtn.addEventListener('click', toggleConnection);
 
-        function showBanner(message, isError) {
-            contextBanner.textContent = message;
-            contextBanner.classList.remove('hidden', 'error');
-            if (isError) {
-                contextBanner.classList.add('error');
-            }
-        }
+    // ==================== Register Panel Builder ====================
+    const registersContainer = document.getElementById('registers');
 
-        function checkBrowsingContext() {
-            const isSecure = window.isSecureContext;
-            const hasBluetooth = 'bluetooth' in navigator;
+    function buildPanels() {
+        REGISTERS.forEach(reg => {
+            const panel = document.createElement('div');
+            panel.className = 'panel';
+            panel.dataset.addr = reg.addr.toString(16);
 
-            if (!isSecure) {
-                showBanner(
-                    '当前页面未通过 HTTPS 或 localhost 访问，Web Bluetooth 已被浏览器禁用。' +
-                    '请使用本页面的 GitHub Pages 地址（https://...）访问。',
-                    true
-                );
-                connectBtn.disabled = true;
-                return false;
-            }
-
-            if (!hasBluetooth) {
-                showBanner(
-                    '当前浏览器不支持 Web Bluetooth。请使用 Chrome、Edge 或其他基于 Chromium 的浏览器，并确保蓝牙已开启。',
-                    true
-                );
-                connectBtn.disabled = true;
-                return false;
-            }
-
-            return true;
-        }
-
-        client.addEventListener('statechange', (event) => {
-            updateStatus(event.state);
-            setControlsEnabled(event.state === 'connected');
-        });
-
-        client.addEventListener('response', (event) => {
-            log('< ' + event.response);
-        });
-
-        client.addEventListener('disconnect', (event) => {
-            if (event.unexpected) {
-                log('连接意外断开，正在尝试自动重连...');
-            }
-        });
-
-        async function toggleConnection() {
-            try {
-                if (client.isConnected) {
-                    await client.disconnect();
-                    connectBtn.textContent = '连接设备';
-                } else {
-                    await client.connect();
-                    connectBtn.textContent = '断开连接';
-                }
-            } catch (err) {
-                log('错误: ' + err.message);
-            }
-        }
-
-        connectBtn.addEventListener('click', toggleConnection);
-
-        volSlider.addEventListener('input', () => {
-            volDisplay.textContent = volSlider.value;
-        });
-
-        applyVol.addEventListener('click', async () => {
-            try {
-                const response = await client.setVolume(Number(volSlider.value));
-                log('> VOLUME ' + volSlider.value + ' => ' + response);
-            } catch (err) {
-                log('错误: ' + err.message);
-            }
-        });
-
-        filterRadios.forEach(radio => {
-            radio.addEventListener('change', async () => {
-                if (!radio.checked) return;
-                try {
-                    const response = await client.setFilter(Number(radio.value));
-                    log('> FILTER ' + radio.value + ' => ' + response);
-                } catch (err) {
-                    log('错误: ' + err.message);
-                }
+            // Header
+            const header = document.createElement('div');
+            header.className = 'panel-header';
+            header.innerHTML =
+                '<div class="reg-info">' +
+                    '<span class="reg-name">R' + reg.addr.toString(10).padStart(2, '0') + ' (0x' + reg.addr.toString(16).padStart(2, '0') + ') — ' + escHtml(reg.name) + '</span>' +
+                    '<div class="reg-desc">' + escHtml(reg.desc) + '</div>' +
+                '</div>' +
+                '<span class="arrow">&#9660;</span>';
+            header.addEventListener('click', () => {
+                panel.classList.toggle('open');
             });
-        });
 
-        applyFmt.addEventListener('click', async () => {
-            try {
-                const response = await client.setFormat(Number(fmtSelect.value), Number(iwlSelect.value));
-                log('> FORMAT ' + fmtSelect.value + ' ' + iwlSelect.value + ' => ' + response);
-            } catch (err) {
-                log('错误: ' + err.message);
+            // Body
+            const body = document.createElement('div');
+            body.className = 'panel-body';
+
+            if (reg.addr === 0x09) {
+                // R9 is special: reset only
+                body.innerHTML = '<p style="font-size:13px;color:#888;margin-bottom:8px;">写入任意值触发芯片软件复位，所有寄存器恢复默认值。</p>';
+                const resetBtn = document.createElement('button');
+                resetBtn.className = 'send-btn reset-btn';
+                resetBtn.textContent = '执行复位';
+                resetBtn.disabled = !client.isConnected;
+                resetBtn.addEventListener('click', async () => {
+                    try {
+                        const ch = getChannel();
+                        const resp = await sendReg(ch, 0x09, 0x00);
+                        if (resp) log('> RESET ' + ch.toUpperCase() + ' => ' + resp, 'sent');
+                    } catch (err) { log('错误: ' + err.message, 'err'); }
+                });
+                body.appendChild(resetBtn);
+            } else {
+                // Build field controls
+                reg.fields.forEach(f => {
+                    const row = document.createElement('div');
+                    row.className = 'field-row' + (f.type === 'bool' ? ' checkbox-row' : '');
+                    row.dataset.field = f.label;
+
+                    const labelSpan = document.createElement('span');
+                    labelSpan.className = 'field-label';
+                    labelSpan.innerHTML = f.label + ' <span class="field-desc">' + escHtml(f.desc) + '</span>';
+                    row.appendChild(labelSpan);
+
+                    const controlWrap = document.createElement('span');
+                    controlWrap.className = 'field-control';
+
+                    let input;
+                    if (f.type === 'select') {
+                        input = document.createElement('select');
+                        f.options.forEach(opt => {
+                            const o = document.createElement('option');
+                            o.value = opt.value;
+                            o.textContent = opt.label;
+                            if (opt.value === f.default) o.selected = true;
+                            input.appendChild(o);
+                        });
+                    } else if (f.type === 'bool') {
+                        input = document.createElement('input');
+                        input.type = 'checkbox';
+                        if (f.default) input.checked = true;
+                    } else if (f.type === 'num') {
+                        input = document.createElement('input');
+                        input.type = 'number';
+                        input.min = f.min;
+                        input.max = f.max;
+                        input.value = f.default;
+                        input.style.width = '70px';
+                    } else if (f.type === 'range') {
+                        input = document.createElement('input');
+                        input.type = 'range';
+                        input.min = f.min;
+                        input.max = f.max;
+                        input.value = f.default;
+                        const valSpan = document.createElement('span');
+                        valSpan.className = 'field-value';
+                        valSpan.textContent = f.default;
+                        input.addEventListener('input', () => { valSpan.textContent = input.value; });
+                        controlWrap.appendChild(input);
+                        controlWrap.appendChild(valSpan);
+                        row.appendChild(labelSpan);
+                        row.appendChild(controlWrap);
+                        body.appendChild(row);
+                        return;
+                    }
+
+                    controlWrap.appendChild(input);
+                    row.appendChild(labelSpan);
+                    row.appendChild(controlWrap);
+                    body.appendChild(row);
+                });
+
+                // Hex preview
+                const hexRow = document.createElement('div');
+                hexRow.className = 'field-row';
+                hexRow.innerHTML = '<span class="field-label">当前组合值</span>';
+                const hexSpan = document.createElement('span');
+                hexSpan.className = 'reg-hex';
+                hexSpan.textContent = '0x' + composeRegVal(reg).toString(16).padStart(2, '0').toUpperCase();
+                hexRow.appendChild(hexSpan);
+
+                // Update hex preview on any field change
+                body.querySelectorAll('input, select').forEach(el => {
+                    el.addEventListener('input', () => {
+                        hexSpan.textContent = '0x' + composeRegVal(reg).toString(16).padStart(2, '0').toUpperCase();
+                    });
+                    el.addEventListener('change', () => {
+                        hexSpan.textContent = '0x' + composeRegVal(reg).toString(16).padStart(2, '0').toUpperCase();
+                    });
+                });
+
+                body.appendChild(hexRow);
+
+                // Send button
+                const sendBtn = document.createElement('button');
+                sendBtn.className = 'send-btn';
+                sendBtn.textContent = '确认发送';
+                sendBtn.disabled = !client.isConnected;
+                sendBtn.addEventListener('click', async () => {
+                    try {
+                        const ch = getChannel();
+                        const val = composeRegVal(reg);
+                        const resp = await sendReg(ch, reg.addr, val);
+                        if (resp) log('> SET_REG ' + ch.toUpperCase() + ' R' + reg.addr.toString(16).padStart(2, '0') + '=0x' + val.toString(16).padStart(2, '0').toUpperCase() + ' => ' + resp, 'sent');
+                    } catch (err) { log('错误: ' + err.message, 'err'); }
+                });
+                body.appendChild(sendBtn);
             }
-        });
 
-        applyMclk.addEventListener('click', async () => {
-            const selected = document.querySelector('input[name="mclk"]:checked');
-            if (!selected) return;
-            try {
-                const response = await client.setMclkFrequency(Number(selected.value));
-                log('> MCLK ' + selected.value + ' => ' + response);
-            } catch (err) {
-                log('错误: ' + err.message);
+            panel.appendChild(header);
+            panel.appendChild(body);
+            registersContainer.appendChild(panel);
+        });
+    }
+
+    function composeRegVal(reg) {
+        let val = 0;
+        const panel = document.querySelector('.panel[data-addr="' + reg.addr.toString(16) + '"]');
+        if (!panel) return 0;
+        reg.fields.forEach(f => {
+            const row = panel.querySelector('.field-row[data-field="' + f.label + '"]');
+            if (!row) return;
+            let fieldVal;
+            if (f.type === 'select') {
+                fieldVal = parseInt(row.querySelector('select').value);
+            } else if (f.type === 'bool') {
+                fieldVal = row.querySelector('input[type="checkbox"]').checked ? 1 : 0;
+            } else if (f.type === 'num' || f.type === 'range') {
+                fieldVal = parseInt(row.querySelector('input').value) || 0;
             }
+            val |= (fieldVal << f.bitLo);
         });
+        return val & 0xFF;
+    }
 
-        applySrate.addEventListener('click', async () => {
-            try {
-                const response = await client.setSampleRate(Number(srateSelect.value));
-                log('> SRATE ' + srateSelect.value + ' => ' + response);
-            } catch (err) {
-                log('错误: ' + err.message);
-            }
-        });
+    async function sendReg(channel, regAddr, value) {
+        const regHex = regAddr.toString(16);
+        const valHex = value.toString(16).padStart(2, '0');
+        const channelPart = channel === 'both' ? '' : ' ' + channel.toUpperCase();
+        return await client.sendCommand('SET_REG' + channelPart + ' ' + regHex + ' ' + valHex);
+    }
 
-        deemphRadios.forEach(radio => {
-            radio.addEventListener('change', async () => {
-                if (!radio.checked) return;
-                try {
-                    const response = await client.setDeEmphasis(Number(radio.value));
-                    log('> DEEMPH ' + radio.value + ' => ' + response);
-                } catch (err) {
-                    log('错误: ' + err.message);
-                }
-            });
-        });
+    // ==================== Init ====================
+    buildPanels();
+    updateStatus('idle');
 
-        applyOpts.addEventListener('click', async () => {
-            try {
-                await client.setMute(muteChk.checked);
-                await client.setVolumeRamp(rampChk.checked);
-                await client.setAntiClip(anticlipChk.checked);
-                log('选项已应用');
-            } catch (err) {
-                log('错误: ' + err.message);
-            }
-        });
-
-        resetBtn.addEventListener('click', async () => {
-            try {
-                const response = await client.reset();
-                log('> RESET => ' + response);
-            } catch (err) {
-                log('错误: ' + err.message);
-            }
-        });
-
-        writeReg.addEventListener('click', async () => {
-            const reg = parseInt(regAddr.value.trim(), 16);
-            const val = parseInt(regVal.value.trim(), 16);
-            if (Number.isNaN(reg) || Number.isNaN(val)) {
-                log('请输入有效的十六进制寄存器地址和值');
-                return;
-            }
-            const channel = document.querySelector('input[name="regChannel"]:checked').value;
-            try {
-                const response = await client.writeRegister(reg, val, channel);
-                log('> SET_REG ' + channel.toUpperCase() + ' => ' + response);
-            } catch (err) {
-                log('错误: ' + err.message);
-            }
-        });
-
-        updateStatus('idle');
-        if (checkBrowsingContext()) {
-            log('页面加载完毕，请点击“连接设备”');
-        }
+    // Check browser support
+    if (!window.isSecureContext) {
+        log('请通过 HTTPS 或 localhost 访问以启用 Web Bluetooth', 'err');
+        connectBtn.disabled = true;
+    } else if (!('bluetooth' in navigator)) {
+        log('当前浏览器不支持 Web Bluetooth，请使用 Chrome/Edge', 'err');
+        connectBtn.disabled = true;
+    } else {
+        log('页面加载完毕，请点击"连接设备"');
+    }
     </script>
 </body>
 </html>

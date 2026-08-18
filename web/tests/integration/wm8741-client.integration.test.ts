@@ -54,15 +54,12 @@ describe('WM8741BLEClient integration', () => {
     const service = device.gattServer.services.get(DEFAULT_SERVICE_UUID.toLowerCase())!;
     const respCharacteristic = service.characteristics.get(DEFAULT_RESP_CHARACTERISTIC_UUID.toLowerCase())!;
 
-    const volumeSlider = document.getElementById('volume') as HTMLInputElement;
-    volumeSlider.value = '50';
-
-    const applyPromise = client.setVolume(50);
-    setTimeout(() => respCharacteristic.dispatchResponse('OK Volume 50'), 10);
+    const applyPromise = client.writeRegister(0x04, 0x01);
+    setTimeout(() => respCharacteristic.dispatchResponse('OK Reg BOTH 0x04=0x01'), 10);
     const response = await applyPromise;
 
-    expect(response).toBe('OK Volume 50');
-    expect(logEl.textContent).toContain('OK Volume 50');
+    expect(response).toBe('OK Reg BOTH 0x04=0x01');
+    expect(logEl.textContent).toContain('OK Reg BOTH 0x04=0x01');
   });
 
   it('displays the correct command written to the CMD characteristic', async () => {
@@ -76,13 +73,13 @@ describe('WM8741BLEClient integration', () => {
     const cmdCharacteristic = service.characteristics.get(DEFAULT_CMD_CHARACTERISTIC_UUID.toLowerCase())!;
     const respCharacteristic = service.characteristics.get(DEFAULT_RESP_CHARACTERISTIC_UUID.toLowerCase())!;
 
-    const promise = client.setMute(true);
-    setTimeout(() => respCharacteristic.dispatchResponse('OK MUTE ON'), 10);
+    const promise = client.writeRegister(0x04, 0x01);
+    setTimeout(() => respCharacteristic.dispatchResponse('OK Reg BOTH 0x04=0x01'), 10);
     await promise;
 
     const written = cmdCharacteristic.getWrittenValues();
     expect(written.length).toBe(1);
-    expect(new TextDecoder().decode(written[0])).toBe('MUTE 1\n');
+    expect(new TextDecoder().decode(written[0])).toBe('SET_REG 04 01\n');
   });
 });
 
