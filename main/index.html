@@ -145,8 +145,8 @@
                 { label: 'PCM', value: 0 }, { label: 'DSD Direct', value: 1 }, { label: 'DSD Plus', value: 2 }
             ], default: 0 },
             { label: 'SR',      desc: '采样率',         bitHi: 4, bitLo: 2, type: 'select', options: [
-                { label: '自动 (Auto)', value: 0 }, { label: '128fs (44.1 kHz)', value: 1 }, { label: '128fs (48 kHz)', value: 2 },
-                { label: '64fs (88.2 kHz)', value: 3 }, { label: '64fs (96 kHz)', value: 4 }, { label: '32fs (176.4 kHz)', value: 5 }, { label: '32fs (192 kHz)', value: 6 }
+                { label: '自动 (Auto)', value: 0 }, { label: '128fs', value: 1 }, { label: '192fs', value: 2 },
+                { label: '256fs', value: 3 }, { label: '384fs', value: 4 }, { label: '512fs', value: 5 }, { label: '768fs', value: 6 }, { label: '保留', value: 7 }
             ], default: 0 },
             { label: 'OSR',     desc: '过采样率',       bitHi: 6, bitLo: 5, type: 'select', options: [
                 { label: '低 (64fs) — 32/44.1/48 kHz', value: 0 }, { label: '中 (128fs) — 96 kHz', value: 1 }, { label: '高 (256fs) — 192 kHz', value: 2 }, { label: '保留', value: 3 }
