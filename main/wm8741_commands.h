@@ -63,7 +63,7 @@ extern "C" {
 #define MODE2_DIFF_SHIFT    2
 
 /* 双单声道（dual mono / bridged）软件配置，写 MODE_CTRL2 (R8)：
- * 默认值 0x02 = 立体声；0x06 = 左声道 mono（DIFF=1）；0x0E = 右声道 mono（DIFF=1, LRSEL=1）
+ * 默认值 0x02 = 立体声；0x06 = 左声道 mono（DIFF=01）；0x0E = 右声道 mono（DIFF=11）
  * 配合硬件：DIFFHW(6脚)=GND，VOUTLP(17)+VOUTRN(13)、VOUTRP(12)+VOUTLN(16) 桥接成差分输出 */
 #define MODE2_MONO_LEFT     0x06
 #define MODE2_MONO_RIGHT    0x0E
