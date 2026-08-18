@@ -123,17 +123,17 @@
         },
         {
             addr: 0x04, name: 'Volume Control',
-            desc: '音量控制与静音',
+            desc: '音量控制、静音与零标志',
             fields: [
                 { label: 'VOL_RAMP',  desc: '音量渐变',         bitHi: 0, bitLo: 0, type: 'bool',   default: 0 },
                 { label: 'ATT2DB',    desc: '防削波 2dB',       bitHi: 1, bitLo: 1, type: 'bool',   default: 0 },
-                { label: 'IZD',       desc: '无限零检测',       bitHi: 2, bitLo: 2, type: 'bool',   default: 0 },
+                { label: 'ATC',       desc: '衰减控制',         bitHi: 2, bitLo: 2, type: 'bool',   default: 0 },
                 { label: 'SOFTMUTE',  desc: '软静音',           bitHi: 3, bitLo: 3, type: 'bool',   default: 0 },
-                { label: 'ATC',       desc: '左声道衰减控制',   bitHi: 4, bitLo: 4, type: 'bool',   default: 0 },
-                { label: 'ATC_R',     desc: '右声道衰减控制',   bitHi: 5, bitLo: 5, type: 'bool',   default: 0 },
-                { label: 'ZFLAG',     desc: '零标志 (只读)',    bitHi: 7, bitLo: 6, type: 'select', options: [
+                { label: 'IZD',       desc: '无限零检测',       bitHi: 4, bitLo: 4, type: 'bool',   default: 0 },
+                { label: 'ZFLAG',     desc: '零标志输出',       bitHi: 6, bitLo: 5, type: 'select', options: [
                     { label: '独立', value: 0 }, { label: '左与右', value: 1 }, { label: '左或右', value: 2 }, { label: '保留', value: 3 }
-                ], default: 0 }
+                ], default: 0 },
+                { label: 'AMUTE',     desc: '自动静音',         bitHi: 7, bitLo: 7, type: 'bool',   default: 0 }
             ]
         },
         {
@@ -158,49 +158,50 @@
         },
         {
             addr: 0x06, name: 'Filter Control',
-            desc: '数字滤波器与去加重设置',
+            desc: '数字滤波器、DSD滤波与去加重设置',
             fields: [
-                { label: 'FIRSEL', desc: '滤波器响应',      bitHi: 2, bitLo: 0, type: 'select', options: [
+                { label: 'FIRSEL',  desc: '滤波器响应',      bitHi: 2, bitLo: 0, type: 'select', options: [
                     { label: '1 - 陡峭', value: 0 }, { label: '2 - 缓降', value: 1 }, { label: '3 - 陡峭', value: 2 }, { label: '4 - 缓降', value: 3 }, { label: '5 - 缓降', value: 4 }
                 ], default: 0 },
-                { label: 'DEEMPH', desc: '去加重',          bitHi: 6, bitLo: 5, type: 'select', options: [
+                { label: 'DSDFILT', desc: 'DSD 滤波器选择',  bitHi: 4, bitLo: 3, type: 'select', options: [
+                    { label: 'DSD 滤波 1', value: 0 }, { label: 'DSD 滤波 2', value: 1 }, { label: 'DSD 滤波 3', value: 2 }, { label: '保留', value: 3 }
+                ], default: 0 },
+                { label: 'DEEMPH',  desc: '去加重',          bitHi: 6, bitLo: 5, type: 'select', options: [
                     { label: '关', value: 0 }, { label: '44.1 kHz', value: 1 }, { label: '48 kHz', value: 2 }, { label: '32 kHz', value: 3 }
-                ], default: 0 }
+                ], default: 0 },
+                { label: 'ZFLAG_HI',desc: 'ZFLAG 高位扩展',  bitHi: 7, bitLo: 7, type: 'bool',   default: 0 }
             ]
         },
         {
             addr: 0x07, name: 'Mode Control 1',
-            desc: 'PCM/DSD 模式与采样率',
+            desc: 'PCM/DSD 模式、采样率与过采样',
             fields: [
                 { label: 'MODESEL', desc: 'PCM/DSD 模式',   bitHi: 1, bitLo: 0, type: 'select', options: [
                     { label: 'PCM', value: 0 }, { label: 'DSD Direct', value: 1 }, { label: 'DSD Plus', value: 2 }
                 ], default: 0 },
                 { label: 'SR',      desc: '采样率',         bitHi: 4, bitLo: 2, type: 'select', options: [
-                    { label: '32 kHz', value: 0 }, { label: '44.1 kHz', value: 1 }, { label: '48 kHz', value: 2 },
+                    { label: '32/48 kHz (Auto)', value: 0 }, { label: '44.1 kHz', value: 1 }, { label: '48 kHz', value: 2 },
                     { label: '88.2 kHz', value: 3 }, { label: '96 kHz', value: 4 }, { label: '176.4 kHz', value: 5 }, { label: '192 kHz', value: 6 }
                 ], default: 0 },
                 { label: 'OSR',     desc: '过采样率',       bitHi: 6, bitLo: 5, type: 'select', options: [
-                    { label: '低', value: 0 }, { label: '高', value: 1 }
+                    { label: '低 (64fs)', value: 0 }, { label: '中 (128fs)', value: 1 }, { label: '高 (256fs)', value: 2 }, { label: '保留', value: 3 }
                 ], default: 0 },
-                { label: 'MUTEX',   desc: '8x 模式',        bitHi: 7, bitLo: 7, type: 'bool',   default: 0 }
+                { label: 'MODE8X',  desc: '8x 模式',        bitHi: 7, bitLo: 7, type: 'bool',   default: 0 }
             ]
         },
         {
             addr: 0x08, name: 'Mode Control 2',
-            desc: '差分/单声道/菊花链配置',
+            desc: '声道选择、抖动与菊花链配置',
             fields: [
-                { label: 'DITHER', desc: '抖动',            bitHi: 1, bitLo: 0, type: 'select', options: [
+                { label: 'DITHER',   desc: '抖动',            bitHi: 1, bitLo: 0, type: 'select', options: [
                     { label: '关', value: 0 }, { label: '低', value: 1 }, { label: '中', value: 2 }, { label: '高', value: 3 }
                 ], default: 0 },
-                { label: 'DIFF',   desc: '差分单声道',      bitHi: 2, bitLo: 2, type: 'select', options: [
-                    { label: '立体声', value: 0 }, { label: '单声道', value: 1 }
+                { label: 'DIFF',     desc: '声道选择',        bitHi: 3, bitLo: 2, type: 'select', options: [
+                    { label: '立体声', value: 0 }, { label: '单声道 (左)', value: 1 }, { label: '单声道 (右)', value: 2 }, { label: '保留', value: 3 }
                 ], default: 0 },
-                { label: 'LRSEL',  desc: '左右选择 (DIFF=1 时)', bitHi: 3, bitLo: 3, type: 'select', options: [
-                    { label: '左声道', value: 0 }, { label: '右声道', value: 1 }
-                ], default: 0 },
-                { label: 'DACDA',  desc: '菊花链音频',      bitHi: 4, bitLo: 4, type: 'bool',   default: 0 },
-                { label: 'DACDC',  desc: '菊花链控制',      bitHi: 5, bitLo: 5, type: 'bool',   default: 0 },
-                { label: 'DSDR',   desc: 'DSD 增益',        bitHi: 6, bitLo: 6, type: 'select', options: [
+                { label: 'DOUT',     desc: '数字输出',        bitHi: 4, bitLo: 4, type: 'bool',   default: 0 },
+                { label: 'SDOUT',    desc: 'SDOUT',           bitHi: 5, bitLo: 5, type: 'bool',   default: 0 },
+                { label: 'DSD_GAIN', desc: 'DSD 增益',        bitHi: 6, bitLo: 6, type: 'select', options: [
                     { label: '低', value: 0 }, { label: '高', value: 1 }
                 ], default: 0 }
             ]
@@ -212,11 +213,10 @@
         },
         {
             addr: 0x20, name: 'Additional Control 1',
-            desc: '附加控制寄存器',
+            desc: 'DSD 附加控制',
             fields: [
-                { label: 'BIT[0]',    desc: '控制位 0',        bitHi: 0, bitLo: 0, type: 'bool',   default: 0 },
-                { label: 'BIT[1]',    desc: '控制位 1',        bitHi: 1, bitLo: 1, type: 'bool',   default: 1 },
-                { label: 'BIT[7:2]',  desc: '控制位 7-2',      bitHi: 7, bitLo: 2, type: 'num',    min: 0, max: 63, default: 0 }
+                { label: 'DSD_NO_NOTCH', desc: 'DSD 无陷波',  bitHi: 0, bitLo: 0, type: 'bool',   default: 0 },
+                { label: 'DSD_LEVEL',    desc: 'DSD 电平',     bitHi: 1, bitLo: 1, type: 'bool',   default: 1 }
             ]
         }
     ];
